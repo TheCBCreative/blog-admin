@@ -1,0 +1,39 @@
+{
+  "name": "@thecbcreative/blog-admin",
+  "version": "0.1.0",
+  "description": "Self-hosted, themeable blog admin for client sites. Core logic shared; styling and extra fields per project.",
+  "type": "module",
+  "license": "UNLICENSED",
+  "private": true,
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./core": "./src/core/index.ts",
+    "./adapters": "./src/adapters/index.ts",
+    "./adapters/neon": "./src/adapters/neon/index.ts"
+  },
+  "files": [
+    "src",
+    "db"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@neondatabase/serverless": "^1.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  },
+  "peerDependencies": {
+    "@neondatabase/serverless": "^1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@neondatabase/serverless": {
+      "optional": true
+    }
+  }
+}
