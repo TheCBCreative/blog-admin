@@ -9,3 +9,5 @@ export {
   type GuardOptions,
   type SessionResult,
 } from './guard.js';
+
+export { createEmailSender, DEFAULT_FROM, type EmailConfig } from './email.js';
