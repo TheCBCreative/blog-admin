@@ -8,6 +8,7 @@
 
 import { betterAuth } from 'better-auth';
 import { Pool, types } from '@neondatabase/serverless';
+import { createEmailSender } from './email.js';
 
 /**
  * Return Postgres bigint (int8, OID 20) as a number rather than a string.
@@ -47,6 +48,20 @@ export interface BlogAuthConfig {
    * logins while testing are expected. Never set this in production.
    */
   disableRateLimit?: boolean;
+  /**
+   * Enables the forgot-password flow. Without it, the endpoint stays inert and
+   * password recovery is manual — a deliberate default, since a reset flow that
+   * can't actually deliver mail is worse than none.
+   */
+  email?: {
+    resendApiKey: string;
+    /** Shown in the email body, e.g. "Alpenglow Aesthetique". */
+    siteName: string;
+    /** Override the default CB Creative sender. */
+    from?: string;
+    /** Where the tokenized link lands. Defaults to `${baseUrl}/admin/reset-password`. */
+    resetPath?: string;
+  };
 }
 
 export type BlogAuth = ReturnType<typeof createBlogAuth>;
@@ -74,6 +89,31 @@ export function createBlogAuth(config: BlogAuthConfig) {
       // is happening because a credential leaked, leaving old sessions alive
       // defeats the point.
       revokeSessionsOnPasswordReset: true,
+
+      // Only wired when email is configured; otherwise the endpoint stays inert.
+      ...(config.email
+        ? {
+            sendResetPassword: async ({ user, url }: { user: { email: string }; url: string }) => {
+              const sender = createEmailSender({
+                apiKey: config.email!.resendApiKey,
+                from: config.email!.from,
+                siteName: config.email!.siteName,
+              });
+
+              /**
+               * Deliberately not awaited.
+               *
+               * Better Auth's docs call this out: awaiting the send makes the
+               * response time depend on whether the address exists, which leaks
+               * account existence to anyone timing the endpoint. Fire and let it
+               * settle; failures land in the server log.
+               */
+              void sender
+                .sendPasswordReset({ to: user.email, url })
+                .catch((err) => console.error('[auth] reset email failed:', err));
+            },
+          }
+        : {}),
     },
 
     session: {
@@ -124,6 +164,12 @@ export function createBlogAuth(config: BlogAuthConfig) {
         '/sign-in/email': { window: 10, max: 3 },
         // Password reset can be used to spray email; same treatment.
         '/request-password-reset': { window: 60, max: 3 },
+        /**
+         * Change-password takes the CURRENT password, so without a limit it's a
+         * brute-force oracle for anyone holding a stolen session cookie — they
+         * could guess the existing password without ever touching the login form.
+         */
+        '/change-password': { window: 60, max: 5 },
       },
     },
   });
