@@ -5,7 +5,7 @@
  * interpolation anywhere in this file, ever.
  */
 
-import type { NeonQueryFunction } from '@neondatabase/serverless';
+import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import type { NewPost, Post, PostPatch, PostStatus } from '../../types.js';
 import type { ListOptions, PostStore } from '../types.js';
 import { SlugConflictError, PostNotFoundError } from '../types.js';
@@ -242,4 +242,14 @@ export function createNeonPostStore(sql: NeonQueryFunction<false, false>): PostS
       return rows;
     },
   };
+}
+
+/**
+ * Convenience wrapper: build a store straight from a connection string.
+ *
+ * Saves consumers from importing the driver themselves just to construct a
+ * client, and keeps the driver version pinned in one place.
+ */
+export function createNeonPostStoreFromUrl(databaseUrl: string): PostStore {
+  return createNeonPostStore(neon(databaseUrl) as NeonQueryFunction<false, false>);
 }
