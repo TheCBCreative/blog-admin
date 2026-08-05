@@ -4,6 +4,27 @@
  * the security-relevant behaviour stays in one place.
  */
 
-export { createAuthClient, type AuthClient, type AuthClientOptions, type AuthResult } from './auth.js';
+export {
+  createAuthClient,
+  type AuthClient,
+  type AuthClientOptions,
+  type AuthResult,
+} from './auth.js';
+
 export { parseRetryAfter, retryAfterSeconds, rateLimitMessage } from './retry.js';
+
 export { safeNextPath } from './redirect.js';
+
+export {
+  serializePostForm,
+  suggestPostFields,
+  suggestSlug,
+  parseTags,
+  statusForMode,
+  isPostFormMode,
+  type PostFormMode,
+  type PostFormValues,
+  type SerializedPost,
+  type SuggestedFields,
+  type SuggestionSources,
+} from './post-form.js';
