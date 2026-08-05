@@ -26,3 +26,16 @@ export {
   type ValidationError,
   type ValidateOptions,
 } from './validate.js';
+
+export {
+  toPlainText,
+  deriveExcerpt,
+  deriveSeoTitle,
+  deriveSeoDescription,
+  EXCERPT_MAX,
+  SEO_TITLE_MAX,
+  SEO_DESCRIPTION_MAX,
+} from './derive.js';
+
+export { sanitizePostHtml, createSanitizer, ALLOWED_TAGS } from './sanitize.js';
+export { normalizeLinkHref } from './link.js';
