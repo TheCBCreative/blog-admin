@@ -42,8 +42,32 @@ if (files.length === 0) {
   process.exit(1);
 }
 
-const client = new Client(url);
-await client.connect();
+/**
+ * Neon's free tier autosuspends, so the first connection after an idle spell can
+ * drop mid-handshake. Retry a couple of times before giving up.
+ */
+async function connect(attempt = 1) {
+  const client = new Client(url);
+  // Without this, a dropped socket emits an unhandled 'error' event and crashes
+  // with an event-emitter stack trace instead of something readable.
+  client.on('error', (err) => {
+    console.error(`\ndatabase connection error: ${err.message}`);
+  });
+
+  try {
+    await client.connect();
+    return client;
+  } catch (err) {
+    await client.end().catch(() => {});
+    if (attempt >= 3) throw err;
+    const waitMs = attempt * 1500;
+    console.log(`connection failed, retrying in ${waitMs}ms (attempt ${attempt + 1}/3)…`);
+    await new Promise((r) => setTimeout(r, waitMs));
+    return connect(attempt + 1);
+  }
+}
+
+const client = await connect();
 
 try {
   for (const file of files) {

@@ -12,7 +12,8 @@
     ".": "./src/index.ts",
     "./core": "./src/core/index.ts",
     "./adapters": "./src/adapters/index.ts",
-    "./adapters/neon": "./src/adapters/neon/index.ts"
+    "./adapters/neon": "./src/adapters/neon/index.ts",
+    "./auth": "./src/auth/index.ts"
   },
   "files": [
     "src",
@@ -22,10 +23,15 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:migrate": "node scripts/migrate.mjs"
+    "db:migrate": "node scripts/migrate.mjs",
+    "db:seed-admin": "tsx scripts/seed-admin.ts",
+    "db:migrate-auth": "tsx scripts/migrate-auth.ts",
+    "db:setup": "npm run db:migrate && npm run db:migrate-auth"
   },
   "devDependencies": {
     "@neondatabase/serverless": "^1.0.0",
+    "@types/node": "^26.1.2",
+    "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   },
@@ -36,5 +42,8 @@
     "@neondatabase/serverless": {
       "optional": true
     }
+  },
+  "dependencies": {
+    "better-auth": "^1.3.0"
   }
 }
