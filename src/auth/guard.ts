@@ -16,12 +16,18 @@ import type { BlogAuth } from './create-auth.js';
 
 export interface GuardOptions {
   auth: BlogAuth;
-  /** Where to send unauthenticated users. Must NOT itself be protected. */
+  /** Where to send unauthenticated users. Always treated as public. */
   loginPath?: string;
   /** Path prefixes requiring a session. */
   protectedPrefixes?: string[];
   /** Prefixes returning 401 JSON rather than redirecting. */
   apiPrefixes?: string[];
+  /**
+   * Extra paths under a protected prefix that must stay reachable without a
+   * session. Added to the defaults rather than replacing them, so a consumer
+   * can't accidentally lock out password recovery by setting this.
+   */
+  publicPaths?: string[];
 }
 
 const DEFAULTS = {
@@ -30,9 +36,30 @@ const DEFAULTS = {
   apiPrefixes: ['/api/admin'],
 };
 
+/**
+ * Auth pages that live under /admin but cannot require a session.
+ *
+ * Password recovery is the obvious case and easy to miss: someone resetting a
+ * password has no session by definition, so protecting these paths silently
+ * redirects them to the login page and the flow appears to do nothing.
+ */
+const PUBLIC_AUTH_PATHS = ['/admin/forgot-password', '/admin/reset-password'];
+
 /** Prefix match on a path segment boundary, so /adminsomething isn't matched. */
 function matchesPrefix(pathname: string, prefix: string): boolean {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
+
+/**
+ * Trailing slashes are normalised away before comparing.
+ *
+ * Astro's trailingSlash setting decides whether a request arrives as
+ * /admin/login or /admin/login/, and an exact string match against one form
+ * silently fails on the other — which would re-introduce the same lockout this
+ * list exists to prevent.
+ */
+function normalizePath(pathname: string): string {
+  return pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
 }
 
 export interface SessionResult {
@@ -62,6 +89,10 @@ export function createAdminGuard(options: GuardOptions) {
   const protectedPrefixes = options.protectedPrefixes ?? DEFAULTS.protectedPrefixes;
   const apiPrefixes = options.apiPrefixes ?? DEFAULTS.apiPrefixes;
 
+  const publicPaths = new Set(
+    [loginPath, ...PUBLIC_AUTH_PATHS, ...(options.publicPaths ?? [])].map(normalizePath),
+  );
+
   return async function onRequest(
     context: {
       request: Request;
@@ -76,14 +107,15 @@ export function createAdminGuard(options: GuardOptions) {
     const isApi = apiPrefixes.some((p) => matchesPrefix(pathname, p));
     const isPage = protectedPrefixes.some((p) => matchesPrefix(pathname, p));
 
-    // The login page lives under /admin but obviously can't require a session.
-    const isLogin = pathname === loginPath;
+    // Login and the password-recovery pages live under /admin but can't require
+    // a session. Pages only — an API path is never exempted here.
+    const isPublic = !isApi && publicPaths.has(normalizePath(pathname));
 
     const { user, session } = await getSession(options.auth, context.request);
     context.locals.user = user;
     context.locals.session = session;
 
-    if (session || isLogin || (!isApi && !isPage)) {
+    if (session || isPublic || (!isApi && !isPage)) {
       return next();
     }
 
