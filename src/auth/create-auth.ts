@@ -7,7 +7,24 @@
  */
 
 import { betterAuth } from 'better-auth';
-import { Pool } from '@neondatabase/serverless';
+import { Pool, types } from '@neondatabase/serverless';
+
+/**
+ * Return Postgres bigint (int8, OID 20) as a number rather than a string.
+ *
+ * ── The bug this fixes ──────────────────────────────────────────────────────
+ * Better Auth's rateLimit table stores lastRequest as bigint. The driver returns
+ * bigint as a string by default (correctly — int8 can exceed Number.MAX_SAFE_
+ * INTEGER). Better Auth then does arithmetic on it, so `lastRequest + window`
+ * concatenates instead of adding. Two consequences: X-Retry-After came back as a
+ * nonsense 15-digit number, and the window check always looked expired, so the
+ * limit triggered but never held — you could retry immediately.
+ *
+ * Coercing to Number is safe for this use: these are epoch-millisecond
+ * timestamps, and Number stays exact until year ~287396. Do not rely on this if
+ * a future table stores genuinely large bigints such as Snowflake IDs.
+ */
+types.setTypeParser(20, (value: string) => Number(value));
 
 export interface BlogAuthConfig {
   /** Postgres connection string. Use the pooled Neon string. */
@@ -25,6 +42,11 @@ export interface BlogAuthConfig {
   allowSignUp?: boolean;
   /** Session lifetime in seconds. Default 7 days. */
   sessionMaxAge?: number;
+  /**
+   * Turns rate limiting off. Only for local development where repeated failed
+   * logins while testing are expected. Never set this in production.
+   */
+  disableRateLimit?: boolean;
 }
 
 export type BlogAuth = ReturnType<typeof createBlogAuth>;
@@ -62,12 +84,47 @@ export function createBlogAuth(config: BlogAuthConfig) {
       // Better Auth sets HttpOnly and SameSite by default; this forces the
       // Secure flag even when a proxy makes the request look like plain HTTP.
       useSecureCookies: config.baseUrl.startsWith('https://'),
+
+      ipAddress: {
+        /**
+         * Single trusted header, not a forwarded chain.
+         *
+         * Better Auth deliberately distrusts comma-separated x-forwarded-for
+         * values, because behind an appending proxy the leftmost token is
+         * client-controlled and therefore spoofable. The Astro route handler
+         * overwrites this header with ctx.clientAddress — a single value resolved
+         * by the platform — so it's safe to read here.
+         */
+        ipAddressHeaders: ['x-forwarded-for'],
+      },
     },
 
-    // NOTE: Better Auth ships built-in rate limiting, but verify the current
-    // config shape against the docs before relying on it — an unthrottled login
-    // endpoint is brute-forceable, and a single admin password is the whole
-    // security boundary here.
-    // https://www.better-auth.com/docs/concepts/rate-limit
+    rateLimit: {
+      // Explicitly on rather than relying on the production-only default, so
+      // the behaviour is the same in dev and can actually be tested.
+      enabled: config.disableRateLimit !== true,
+
+      window: 60,
+      max: 100,
+
+      /**
+       * Database-backed, not the in-memory default.
+       *
+       * This is the part that matters on Vercel: serverless invocations don't
+       * share memory, so in-memory counters reset constantly and the limit
+       * becomes decorative. Requires the rateLimit table — run db:migrate-auth.
+       */
+      storage: 'database',
+      modelName: 'rateLimit',
+
+      customRules: {
+        // Better Auth already defaults this to 3/10s. Stated explicitly because
+        // it's the one limit standing between a leaked URL and a brute-forced
+        // admin password, and it shouldn't be invisible in the config.
+        '/sign-in/email': { window: 10, max: 3 },
+        // Password reset can be used to spray email; same treatment.
+        '/request-password-reset': { window: 60, max: 3 },
+      },
+    },
   });
 }
