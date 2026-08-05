@@ -1,5 +1,9 @@
 /**
- * Creates Better Auth's tables (user, session, account, verification).
+ * Creates Better Auth's tables (user, session, account, verification, rateLimit).
+ *
+ * rateLimit is only created once rateLimit.storage is set to 'database' in the
+ * auth config — which it is, because in-memory counters are useless on
+ * serverless where invocations don't share memory.
  *
  *   npm run db:migrate-auth
  *
