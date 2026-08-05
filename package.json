@@ -21,7 +21,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "db:migrate": "node scripts/migrate.mjs"
   },
   "devDependencies": {
     "@neondatabase/serverless": "^1.0.0",
