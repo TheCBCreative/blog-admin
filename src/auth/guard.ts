@@ -98,7 +98,22 @@ export function createAdminGuard(options: GuardOptions) {
       request: Request;
       url: URL;
       locals: Record<string, unknown>;
-      redirect: (path: string, status?: number) => Response;
+      /**
+       * Narrowed to the 3xx statuses rather than `number`.
+       *
+       * Not cosmetic. Function parameters are contravariant, so declaring this as
+       * `status?: number` made Astro's own `context.redirect` — which accepts only
+       * the redirect statuses — unassignable here, and every consumer passing it
+       * through middleware failed to typecheck. A subset of Astro's union is
+       * assignable; a superset is not. It also happens to be more honest, since a
+       * redirect that accepts 200 isn't a redirect.
+       */
+      redirect: (path: string, status?: 301 | 302 | 303 | 307 | 308) => Response;
+      /**
+       * Astro's APIContext.isPrerendered. Optional so non-Astro callers and the
+       * existing tests don't have to supply it.
+       */
+      isPrerendered?: boolean;
     },
     next: () => Promise<Response>,
   ): Promise<Response> {
@@ -111,7 +126,22 @@ export function createAdminGuard(options: GuardOptions) {
     // a session. Pages only — an API path is never exempted here.
     const isPublic = !isApi && publicPaths.has(normalizePath(pathname));
 
-    const { user, session } = await getSession(options.auth, context.request);
+    /*
+     * A prerendered route has no real request behind it, so reading its headers
+     * is meaningless — Astro warns about exactly this, and the session would
+     * resolve to null every time regardless.
+     *
+     * Skipping the lookup is therefore not a behaviour change: it returns the
+     * same null it would have, without the warning and without a session
+     * round-trip on every public page view. A protected route is never
+     * prerendered, so this can't accidentally wave one through — but the
+     * ordering below makes that explicit rather than relying on it.
+     */
+    const skipSession = context.isPrerendered === true && !isApi && !isPage;
+
+    const { user, session } = skipSession
+      ? { user: null, session: null }
+      : await getSession(options.auth, context.request);
     context.locals.user = user;
     context.locals.session = session;
 
