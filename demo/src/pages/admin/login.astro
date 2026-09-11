@@ -1,0 +1,36 @@
+---
+import LoginForm from '../../components/LoginForm.tsx';
+import { DEMO_EMAIL, DEMO_PASSWORD } from '../../lib/demo-config';
+import '../../styles/admin.css';
+
+const next = Astro.url.searchParams.get('next') || '/admin';
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <title>Sign in · Blog Composer</title>
+  </head>
+  <body>
+    <div class="login-shell">
+      <div class="login-card">
+        <h1>Blog Composer</h1>
+        <p class="sub">Seeded demo — credentials below, click around freely.</p>
+        <div class="demo-creds">
+          {DEMO_EMAIL}<br />
+          {DEMO_PASSWORD}
+        </div>
+        <LoginForm client:load next={next} demoEmail={DEMO_EMAIL} demoPassword={DEMO_PASSWORD} />
+      </div>
+    </div>
+  </body>
+</html>

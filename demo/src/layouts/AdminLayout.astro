@@ -1,0 +1,52 @@
+---
+import '../styles/admin.css';
+
+interface Props {
+  title: string;
+  active?: 'dashboard' | 'posts' | 'media';
+}
+const { title, active } = Astro.props;
+const isActive = (name: string) => (active === name ? 'active' : '');
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <title>{title} · Blog Composer</title>
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <a href="/admin" class="brand">Blog<span>Composer</span></a>
+        <nav>
+          <a href="/admin" class={isActive('dashboard')}>Dashboard</a>
+          <a href="/admin/posts" class={isActive('posts')}>Posts</a>
+          <a href="/admin/media" class={isActive('media')}>Media Library</a>
+        </nav>
+        <div class="demo-note">
+          Seeded demo — no real client data.<br />
+          <a href="/api/auth/sign-out" id="sign-out-link" style="color:#aab; text-decoration:underline;">Sign out</a>
+        </div>
+      </aside>
+      <main class="main">
+        <slot />
+      </main>
+    </div>
+    <script>
+      document.getElementById('sign-out-link')?.addEventListener('click', async (e) => {
+        e.preventDefault();
+        await fetch('/api/auth/sign-out', { method: 'POST' });
+        window.location.href = '/admin/login';
+      });
+    </script>
+  </body>
+</html>

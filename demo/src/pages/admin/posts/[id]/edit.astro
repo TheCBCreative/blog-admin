@@ -1,0 +1,51 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import PostComposer from '../../../../components/PostComposer.tsx';
+import { getPostService, DEMO_LAYOUTS } from '../../../../lib/store';
+import { displayStatus } from '@thecbcreative/blog-admin/core';
+import { isSeedPost, visibleTags } from '../../../../lib/demo-cleanup';
+
+export const prerender = false;
+
+const { id } = Astro.params;
+const post = await getPostService().get(id!);
+
+if (!post) {
+  return Astro.redirect('/admin/posts');
+}
+
+// Seeded placeholder posts are marked with an internal tag so cleanup never
+// deletes them — never expose that tag in the editor itself.
+const isSeed = isSeedPost(post.tags);
+
+const serialized = {
+  id: post.id,
+  slug: post.slug,
+  headline: post.headline,
+  subheadline: post.subheadline,
+  excerpt: post.excerpt,
+  body: post.body,
+  layout: post.layout,
+  seoTitle: post.seoTitle,
+  seoDescription: post.seoDescription,
+  tags: visibleTags(post.tags),
+  status: post.status,
+  publishAt: post.publishAt ? post.publishAt.toISOString() : undefined,
+  featuredImage: post.featuredImage ? { url: post.featuredImage.url, alt: post.featuredImage.alt } : undefined,
+};
+---
+<AdminLayout title={`Edit · ${post.headline}`} active="posts">
+  <div class="page-header">
+    <div>
+      <span class="eyebrow">Posts · {displayStatus(post)}</span>
+      <h1>{post.headline}</h1>
+      <p>
+        Last updated {post.updatedAt.toLocaleDateString('en-US', { dateStyle: 'medium' })}
+        {isSeed && <span class="badge badge-draft" style="margin-left:8px;">Placeholder</span>}
+      </p>
+    </div>
+    <a class="btn btn-ghost" href="/admin/posts">← Back to posts</a>
+  </div>
+
+  <PostComposer client:load mode="edit" post={serialized} layouts={[...DEMO_LAYOUTS]} isSeed={isSeed} />
+</AdminLayout>

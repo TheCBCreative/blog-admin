@@ -1,0 +1,75 @@
+---
+import '../../../../styles/admin.css';
+import { displayStatus } from '@thecbcreative/blog-admin';
+import { getPostService } from '../../../../lib/store';
+import { visibleTags } from '../../../../lib/demo-cleanup';
+
+export const prerender = false;
+
+const { id } = Astro.params;
+const post = await getPostService().get(id!);
+
+if (!post) {
+  return Astro.redirect('/admin/posts');
+}
+
+const status = displayStatus(post);
+
+const STATUS_COPY: Record<string, string> = {
+  draft: 'Draft — not visible to anyone but you.',
+  scheduled: `Scheduled for ${post.publishAt?.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })} — not live yet.`,
+  live: 'Live — this is what a visitor sees right now.',
+  archived: 'Archived — no longer linked anywhere on the live site.',
+};
+
+const publishedDate = (post.publishedAt ?? post.createdAt).toLocaleDateString('en-US', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+});
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <title>Preview · {post.headline}</title>
+  </head>
+  <body class="preview-body">
+    <div class={`preview-bar preview-bar-${status}`}>
+      <span><strong>Preview</strong> — {STATUS_COPY[status]}</span>
+      <a class="btn" href={`/admin/posts/${post.id}/edit`}>← Back to editor</a>
+    </div>
+
+    <article class="preview-article">
+      {post.featuredImage && (
+        <img class="preview-hero" src={post.featuredImage.url} alt={post.featuredImage.alt} />
+      )}
+
+      <div class="preview-content">
+        {visibleTags(post.tags).length > 0 && (
+          <div class="preview-tags">
+            {visibleTags(post.tags).map((tag) => <span class="badge badge-draft">{tag}</span>)}
+          </div>
+        )}
+
+        <h1 class="preview-headline">{post.headline}</h1>
+        {post.subheadline && <p class="preview-subheadline">{post.subheadline}</p>}
+
+        <div class="preview-byline">
+          By {post.authorName} · {publishedDate}
+        </div>
+
+        <div class="preview-prose" set:html={post.body} />
+      </div>
+    </article>
+  </body>
+</html>

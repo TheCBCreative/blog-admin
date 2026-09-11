@@ -91,7 +91,7 @@ try {
   if (absent.length > 0) {
     console.error(`Better Auth tables missing: ${absent.join(', ')}\n`);
     console.error('Create them first:');
-    console.error(`  DATABASE_URL='${'<your url>'}' npx auth@latest migrate\n`);
+    console.error('  npm run db:migrate-auth\n');
     process.exit(1);
   }
 } finally {

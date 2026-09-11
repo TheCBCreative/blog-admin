@@ -90,6 +90,13 @@ describe('deriveExcerpt', () => {
     const excerpt = deriveExcerpt('one, two, three, ' + 'x'.repeat(100), 20);
     expect(excerpt).not.toMatch(/[,;:]…$/);
   });
+
+  it('falls back to a hard cut when the truncation window has no space at all', () => {
+    // A single run-on "word" longer than the budget: no sentence end, no space
+    // to break on either — the whole window is kept as-is, then ellipsized.
+    const excerpt = deriveExcerpt('x'.repeat(100), 20);
+    expect(excerpt).toBe(`${'x'.repeat(20)}…`);
+  });
 });
 
 describe('deriveSeoTitle', () => {

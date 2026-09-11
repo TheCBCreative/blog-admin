@@ -1,0 +1,18 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import PostList from '../../../components/PostList.tsx';
+
+export const prerender = false;
+---
+<AdminLayout title="Posts" active="posts">
+  <div class="page-header">
+    <div>
+      <span class="eyebrow">Posts</span>
+      <h1>All Posts</h1>
+      <p>Filter by status, jump into any post to edit it.</p>
+    </div>
+    <a class="btn btn-primary" href="/admin/posts/new">+ New Post</a>
+  </div>
+
+  <PostList client:load />
+</AdminLayout>
