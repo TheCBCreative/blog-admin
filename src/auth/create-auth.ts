@@ -59,8 +59,6 @@ export interface BlogAuthConfig {
     siteName: string;
     /** Override the default CB Creative sender. */
     from?: string;
-    /** Where the tokenized link lands. Defaults to `${baseUrl}/admin/reset-password`. */
-    resetPath?: string;
   };
 }
 
@@ -73,8 +71,9 @@ export function createBlogAuth(config: BlogAuthConfig) {
 
   return betterAuth({
     // The Pool is the pg-compatible driver, which routes Better Auth through
-    // its built-in Kysely adapter — that's what makes `npx auth@latest migrate`
-    // able to create the auth tables directly.
+    // its built-in Kysely adapter — that's what scripts/migrate-auth.ts relies
+    // on to create the auth tables (see that script for why it runs the
+    // migration programmatically instead of via the `auth@latest migrate` CLI).
     database: new Pool({ connectionString: config.databaseUrl }),
 
     baseURL: config.baseUrl,

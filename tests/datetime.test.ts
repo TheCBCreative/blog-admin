@@ -4,6 +4,7 @@ import {
   toLocalDateTimeValue,
   zonedTimeToUtc,
   isFuture,
+  formatInZone,
 } from '../src/core/datetime.js';
 
 const LA = 'America/Los_Angeles';
@@ -111,5 +112,22 @@ describe('isFuture', () => {
   it('distinguishes past from future', () => {
     expect(isFuture(new Date('2026-08-19T12:00:01Z'), now)).toBe(true);
     expect(isFuture(new Date('2026-08-19T11:59:59Z'), now)).toBe(false);
+  });
+});
+
+describe('formatInZone', () => {
+  const instant = new Date('2026-08-19T16:30:00Z');
+
+  it('renders a human-readable, zone-aware string', () => {
+    const formatted = formatInZone(instant, LA);
+    // Exact wording is Intl's call, not ours — just confirm it landed in the
+    // right zone (9:30am PDT) rather than UTC.
+    expect(formatted).toContain('9:30');
+    expect(formatted).toMatch(/AM/i);
+  });
+
+  it('accepts custom Intl options', () => {
+    const formatted = formatInZone(instant, LA, { hour: '2-digit', minute: '2-digit' });
+    expect(formatted).toContain('9:30');
   });
 });

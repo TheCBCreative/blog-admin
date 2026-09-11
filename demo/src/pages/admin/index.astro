@@ -1,0 +1,52 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import DashboardStats from '../../components/DashboardStats.tsx';
+import { getPostService } from '../../lib/store';
+import { displayStatus } from '@thecbcreative/blog-admin/core';
+
+export const prerender = false;
+
+const service = getPostService();
+const [draft, scheduled, published, archived, recent] = await Promise.all([
+  service.count('draft'),
+  service.count('scheduled'),
+  service.count('published'),
+  service.count('archived'),
+  service.list({ limit: 6 }),
+]);
+---
+<AdminLayout title="Dashboard" active="dashboard">
+  <div class="page-header">
+    <div>
+      <span class="eyebrow">Overview</span>
+      <h1>Dashboard</h1>
+      <p>An overview of everything in this seeded demo.</p>
+    </div>
+    <a class="btn btn-primary" href="/admin/posts/new">+ New Post</a>
+  </div>
+
+  <DashboardStats client:load counts={{ draft, scheduled, published, archived }} />
+
+  <div class="card">
+    <span class="eyebrow" style="margin-bottom:14px;">Recently updated</span>
+    {recent.length === 0 ? (
+      <p class="empty">No posts yet.</p>
+    ) : (
+      <table>
+        <thead>
+          <tr><th>Headline</th><th>Status</th><th>Author</th><th>Updated</th></tr>
+        </thead>
+        <tbody>
+          {recent.map((p) => (
+            <tr>
+              <td class="headline"><a href={`/admin/posts/${p.id}/edit`}>{p.headline}</a></td>
+              <td><span class={`badge badge-${displayStatus(p)}`}>{displayStatus(p)}</span></td>
+              <td>{p.authorName}</td>
+              <td>{p.updatedAt.toLocaleDateString()}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
+  </div>
+</AdminLayout>

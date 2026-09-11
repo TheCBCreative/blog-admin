@@ -69,6 +69,15 @@ export function createAuthClient(options: AuthClientOptions = {}) {
     /**
      * Requests a reset link.
      *
+     * `redirectTo` is where the emailed link lands after Better Auth validates
+     * the token — defaults to `/admin/reset-password` on the current origin,
+     * which is where every site so far has put that page. Pass it explicitly
+     * only if a project's reset page lives somewhere else.
+     *
+     * (Better Auth requires this value on the request itself — there's no way
+     * to configure a server-side default instead, since the emailed link's
+     * destination is baked in at send time.)
+     *
      * Reports success even when the address has no account — and note it does so
      * by ignoring the response body entirely, not by inspecting it. Telling the
      * caller "no account found" would confirm which emails are registered to
@@ -77,11 +86,11 @@ export function createAuthClient(options: AuthClientOptions = {}) {
      * Rate limiting is the one thing worth surfacing, since the user genuinely
      * needs to know to wait.
      */
-    async requestPasswordReset(email: string, redirectTo: string): Promise<AuthResult> {
+    async requestPasswordReset(email: string, redirectTo?: string): Promise<AuthResult> {
       try {
         const response = await post('/request-password-reset', {
           email: email.trim(),
-          redirectTo,
+          redirectTo: redirectTo ?? `${window.location.origin}/admin/reset-password`,
         });
 
         if (response.status === 429) {

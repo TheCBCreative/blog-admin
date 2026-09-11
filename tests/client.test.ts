@@ -99,7 +99,7 @@ describe('createAuthClient', () => {
 
     await client.signIn(' user@example.com ', 'pw');
 
-    const [url, init] = fetchImpl.mock.calls[0];
+    const [url, init] = fetchImpl.mock.calls[0]!;
     // Trailing slash stripped so the path isn't doubled.
     expect(url).toBe('/custom/auth/sign-in/email');
     expect(JSON.parse(init.body)).toEqual({ email: 'user@example.com', password: 'pw' });
@@ -165,7 +165,54 @@ describe('createAuthClient', () => {
     const fetchImpl = vi.fn().mockResolvedValue(res(200));
     const client = createAuthClient({ fetchImpl });
     await client.changePassword('old', 'new-password-long');
-    expect(JSON.parse(fetchImpl.mock.calls[0][1].body).revokeOtherSessions).toBe(true);
+    expect(JSON.parse(fetchImpl.mock.calls[0]![1].body).revokeOtherSessions).toBe(true);
+  });
+
+  it('surfaces rate limiting on change-password — the brute-force-oracle guard', async () => {
+    const client = createAuthClient({
+      fetchImpl: vi.fn().mockResolvedValue(res(429, { 'X-Retry-After': '30' })),
+    });
+    const result = await client.changePassword('old', 'new-password-long');
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.rateLimited).toBe(true);
+      expect(result.message).toBe('Too many attempts. Try again in 30 seconds.');
+    }
+  });
+
+  it('is specific about a wrong current password', async () => {
+    const client = createAuthClient({ fetchImpl: vi.fn().mockResolvedValue(res(400)) });
+    const result = await client.changePassword('wrong', 'new-password-long');
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.rateLimited).toBe(false);
+      expect(result.message).toBe('That current password is not correct.');
+    }
+  });
+
+  it('turns a network failure on change-password into a message rather than throwing', async () => {
+    const client = createAuthClient({ fetchImpl: vi.fn().mockRejectedValue(new Error('offline')) });
+    const result = await client.changePassword('old', 'new-password-long');
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.message).toMatch(/Could not reach the server/);
+  });
+
+  it('signs out successfully', async () => {
+    const client = createAuthClient({ fetchImpl: vi.fn().mockResolvedValue(res(200)) });
+    expect(await client.signOut()).toEqual({ ok: true });
+  });
+
+  it('reports a failed sign-out', async () => {
+    const client = createAuthClient({ fetchImpl: vi.fn().mockResolvedValue(res(500)) });
+    const result = await client.signOut();
+    expect(result).toEqual({ ok: false, rateLimited: false, message: 'Could not sign out.' });
+  });
+
+  it('turns a network failure on sign-out into a message rather than throwing', async () => {
+    const client = createAuthClient({ fetchImpl: vi.fn().mockRejectedValue(new Error('offline')) });
+    const result = await client.signOut();
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.message).toMatch(/Could not reach the server/);
   });
 
   it('turns a network failure into a message rather than throwing', async () => {
