@@ -21,8 +21,9 @@ export interface PostServiceConfig {
   layouts: readonly string[];
   timeZone?: string;
   /**
-   * Hook for sanitizing rich-text HTML before storage. Wired in M4b — until
-   * then body content is stored as given, so don't expose the editor yet.
+   * Sanitizes rich-text HTML before storage — see core/sanitize.ts's
+   * createSanitizer(). Optional so a caller with no rich-text editor can
+   * skip it, but any project that accepts HTML input should set this.
    */
   sanitizeHtml?: (html: string) => string;
 }

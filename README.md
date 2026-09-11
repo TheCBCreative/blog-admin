@@ -22,10 +22,17 @@ Built as a modular package with clear boundaries:
 
 This separation means the same admin core can power multiple client blogs, with each project only needing to configure its own theme, fields, and adapter — instead of rebuilding a blog admin from scratch per client.
 
+## Demo
+
+`demo/` is a real, working instance of this package — "Blog Composer": Astro pages with React islands for the interactive screens (login, dashboard, post list, composer, media library), wired to a real Neon Postgres database and real better-auth sessions. Nothing in it is mocked; it exercises the same public API a real client-site integration would use.
+
+See [`demo/README.md`](./demo/README.md) to run it locally, and [`demo/DEMO_DEPLOY.md`](./demo/DEMO_DEPLOY.md) to deploy it.
+
 ## Scripts
 
 - `npm run typecheck` — TypeScript type checking
 - `npm test` / `npm run test:watch` — run the test suite
+- `npm run test:coverage` — run the test suite with a coverage report
 - `npm run db:setup` — run database + auth migrations
 - `npm run db:seed-admin` — seed an initial admin user
 

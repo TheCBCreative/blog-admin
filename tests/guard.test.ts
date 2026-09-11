@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createAdminGuard } from '../src/auth/guard.js';
+import { createAdminGuard, requireSession, withAuth, UnauthorizedError } from '../src/auth/guard.js';
 import type { BlogAuth } from '../src/auth/create-auth.js';
 
 /** Stand-in for a Better Auth instance; only getSession is exercised here. */
@@ -132,5 +132,57 @@ describe('createAdminGuard — locals', () => {
       async () => new Response('next'),
     );
     expect(locals).toEqual({ user: null, session: null });
+  });
+});
+
+describe('requireSession', () => {
+  it('throws UnauthorizedError when there is no session', async () => {
+    await expect(
+      requireSession(fakeAuth(false), new Request('http://example.test/api/admin/posts')),
+    ).rejects.toBeInstanceOf(UnauthorizedError);
+  });
+
+  it('returns the session result when signed in', async () => {
+    const result = await requireSession(
+      fakeAuth(true),
+      new Request('http://example.test/api/admin/posts'),
+    );
+    expect(result.session).toEqual({ id: 's' });
+    expect(result.user).toEqual({ id: 'u' });
+  });
+});
+
+describe('UnauthorizedError', () => {
+  it('carries a 401 status', () => {
+    const err = new UnauthorizedError();
+    expect(err.status).toBe(401);
+    expect(err.name).toBe('UnauthorizedError');
+  });
+});
+
+describe('withAuth', () => {
+  it('wraps an UnauthorizedError as a 401 JSON response', async () => {
+    const handler = withAuth(fakeAuth(false), async () => new Response('should not run'));
+    const response = await handler({ request: new Request('http://example.test/api/admin/posts') });
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ error: 'Unauthorized' });
+  });
+
+  it('calls the handler with the resolved session when signed in', async () => {
+    const handler = withAuth(fakeAuth(true), async ({ session }) => {
+      expect(session.session).toEqual({ id: 's' });
+      return new Response('ok');
+    });
+    const response = await handler({ request: new Request('http://example.test/api/admin/posts') });
+    expect(await response.text()).toBe('ok');
+  });
+
+  it('lets an error other than UnauthorizedError propagate rather than becoming a 401', async () => {
+    const handler = withAuth(fakeAuth(true), async () => {
+      throw new Error('something else broke');
+    });
+    await expect(
+      handler({ request: new Request('http://example.test/api/admin/posts') }),
+    ).rejects.toThrow('something else broke');
   });
 });

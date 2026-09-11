@@ -1,0 +1,284 @@
+/* Palette and type pulled from Cait's portfolio (Portfolio Colors variable
+   collection + Display/Body/Mono text styles) — warm paper ground, forest
+   ink, sage accent, Fraunces for display type — rather than a default SaaS
+   blue-on-gray template. See DEMO_DEPLOY.md / README for context. */
+:root {
+  --paper: #f4f1ea;
+  --ink: #172520;
+  --ink-soft: #52645b;
+  --ink-faint: #8b9990;
+  --line: #d9d2be;
+  --surface: #ffffff;
+  --surface-2: #ebe5d4;
+  --accent: #4f6b58;
+  --accent-hover: #435b4b;
+  --accent-soft: #e5e9e6;
+  --accent-ink: #374b3e;
+  --danger: #b3261e;
+  --radius: 8px;
+  --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--ink);
+  background: var(--paper);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+a { color: inherit; }
+
+.shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  background: var(--ink);
+  color: #fff;
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.sidebar .brand {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fff;
+  text-decoration: none;
+  opacity: 0.9;
+}
+.sidebar .brand span { color: #a3bfab; }
+
+.sidebar nav { display: flex; flex-direction: column; gap: 2px; }
+
+.sidebar nav a {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 6px;
+  color: #c7c8d1;
+  text-decoration: none;
+  font-size: 13.5px;
+}
+.sidebar nav a:hover { background: rgba(255,255,255,0.06); color: #fff; }
+.sidebar nav a.active { background: rgba(255,255,255,0.1); color: #fff; font-weight: 600; }
+
+.sidebar .demo-note {
+  margin-top: auto;
+  font-size: 11.5px;
+  color: #97a49c;
+  line-height: 1.5;
+  border-top: 1px solid rgba(255,255,255,0.12);
+  padding-top: 14px;
+}
+
+.main { flex: 1; padding: 32px 40px; max-width: 1040px; }
+
+/* The eyebrow is the portfolio's most distinctive device — a small uppercase
+   mono label ahead of a headline (see "ABOUT", "SELECTED WORK" etc. on the
+   portfolio itself). Using it here is what actually ties the demo back to
+   Cait's design language; the palette alone didn't. */
+.eyebrow {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink-faint);
+  margin-bottom: 8px;
+}
+
+.page-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 32px; gap: 16px; flex-wrap: wrap; }
+.page-header h1 { font-family: var(--font-display); font-weight: 600; font-size: 26px; margin: 0; }
+.page-header p { color: var(--ink-faint); margin: 6px 0 0; font-size: 13px; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  font-family: inherit;
+}
+.btn:hover { background: var(--line); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn-danger { color: var(--danger); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* For navigation, not actions — "← Back to posts" is a link wearing an
+   arrow, the way the portfolio treats "VIEW THE WORK →", not a button that
+   does something. Reserve plain .btn for things that actually mutate state. */
+.btn-ghost { background: transparent; padding-left: 4px; padding-right: 4px; }
+.btn-ghost:hover { background: transparent; text-decoration: underline; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 24px;
+}
+
+/* Spec-sheet stat row — hairline rules and label/value pairs, modeled on the
+   portfolio's "Colophon" block (STACK / BASED / STATUS), instead of a grid
+   of boxed dashboard tiles. */
+.stat-row { display: flex; margin-bottom: 32px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.stat-item { flex: 1; padding: 18px 24px; border-left: 1px solid var(--line); }
+.stat-item:first-child { border-left: none; padding-left: 0; }
+.stat-item .n { font-family: var(--font-display); font-size: 32px; font-weight: 600; line-height: 1; }
+.stat-item .label { font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-faint); margin-top: 8px; }
+
+.tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--line); }
+.tabs button {
+  background: none; border: none; padding: 8px 14px; font-size: 13px; font-family: inherit;
+  color: var(--ink-faint); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.tabs button.active { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-faint); padding: 8px 12px; border-bottom: 1px solid var(--line); }
+td { padding: 12px; border-bottom: 1px solid var(--line); font-size: 13.5px; vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+td.headline { font-weight: 500; }
+td.headline a { text-decoration: none; }
+td.headline a:hover { text-decoration: underline; }
+
+.badge { display: inline-block; padding: 2px 8px; border-radius: 100px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+.badge-draft { background: var(--surface-2); color: var(--ink-faint); }
+.badge-live { background: #e6f4ea; color: #1e7a34; }
+.badge-scheduled { background: #fff3d6; color: #8a5a00; }
+.badge-archived { background: #f1eaf5; color: #6b3f8f; }
+
+.field { margin-bottom: 18px; }
+.field label { display: block; font-size: 12.5px; font-weight: 600; margin-bottom: 6px; }
+.field .hint { font-size: 11.5px; color: var(--ink-faint); margin-top: 4px; }
+.field input[type="text"], .field input[type="email"], .field input[type="password"], .field input[type="datetime-local"], .field textarea, .field select {
+  width: 100%; padding: 9px 11px; border: 1px solid var(--line); border-radius: 6px; font-size: 13.5px; font-family: inherit; background: var(--surface);
+}
+.field textarea { resize: vertical; min-height: 220px; font-family: var(--font-mono); font-size: 13px; }
+.field.error input, .field.error textarea { border-color: var(--danger); }
+.field .error-msg { color: var(--danger); font-size: 12px; margin-top: 4px; }
+
+/* Rich-text editor (post body). Same hairline-card language as the rest of
+   the admin rather than a boxed toolbar UI — border/radius match .card. */
+.editor-wrap {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+}
+.editor-wrap:focus-within { border-color: var(--accent); }
+.editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 6px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+}
+.editor-toolbar button {
+  padding: 5px 9px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.editor-toolbar button:hover { border-color: var(--line); background: var(--surface); }
+.editor-toolbar button[aria-pressed='true'] { background: var(--accent-soft); color: var(--accent-ink); border-color: transparent; }
+.editor-toolbar button:disabled { opacity: 0.5; cursor: not-allowed; }
+.editor-surface {
+  min-height: 260px;
+  padding: 12px 14px;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  color: var(--ink);
+}
+.editor-surface:focus { outline: none; }
+/* Lists inherit no default padding from a reset here, but Tiptap's own list
+   items need the same left indent the rest of the admin doesn't otherwise set. */
+.editor-surface ul, .editor-surface ol { padding-inline-start: 1.25em; margin: 0.5em 0; }
+.editor-surface p { margin: 0 0 0.75em; }
+.editor-surface p:last-child { margin-bottom: 0; }
+.editor-surface blockquote { border-left: 2px solid var(--line); margin: 0.75em 0; padding-left: 12px; color: var(--ink-soft); }
+.editor-surface h2, .editor-surface h3, .editor-surface h4 { font-family: var(--font-display); font-weight: 600; margin: 0.75em 0 0.35em; }
+.editor-status { font-size: 11.5px; color: var(--ink-faint); padding: 6px 8px; margin: 0; border-top: 1px solid var(--line); }
+
+.form-grid { display: grid; grid-template-columns: 1fr 260px; gap: 24px; align-items: start; }
+.form-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.login-shell { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--ink); }
+.login-card { width: 360px; background: var(--surface); border-radius: 10px; padding: 32px; }
+.login-card h1 { font-family: var(--font-display); font-weight: 600; font-size: 20px; margin: 0 0 4px; }
+.login-card p.sub { color: var(--ink-faint); font-size: 13px; margin: 0 0 20px; }
+.demo-creds { background: var(--accent-soft); border-radius: 6px; padding: 10px 12px; font-size: 12px; font-family: var(--font-mono); margin-bottom: 20px; color: var(--accent-ink); }
+.form-error { background: #fdecea; color: var(--danger); border-radius: 6px; padding: 8px 12px; font-size: 12.5px; margin-bottom: 14px; }
+
+.media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-top: 16px; }
+.media-item { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.media-item img { width: 100%; height: 110px; object-fit: cover; display: block; background: var(--surface-2); }
+.media-item .meta { padding: 8px 10px; font-size: 11px; color: var(--ink-faint); }
+
+.dropzone { border: 1.5px dashed var(--line); border-radius: 8px; padding: 24px; text-align: center; color: var(--ink-faint); font-size: 13px; }
+.dropzone.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+
+.empty { color: var(--ink-faint); font-size: 13px; padding: 24px 0; text-align: center; }
+
+/* Post preview — deliberately NOT admin chrome. This is meant to look like
+   the actual public post, so it gets its own reading-focused layout rather
+   than reusing .shell/.sidebar. */
+.preview-body { background: var(--surface); }
+
+.preview-bar {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 10px 24px; font-size: 13px;
+  border-bottom: 1px solid var(--line);
+}
+.preview-bar-draft { background: var(--surface-2); color: var(--ink-soft); }
+.preview-bar-scheduled { background: #fff3d6; color: #8a5a00; }
+.preview-bar-live { background: #e6f4ea; color: #1e7a34; }
+.preview-bar-archived { background: #f1eaf5; color: #6b3f8f; }
+.preview-bar .btn { flex-shrink: 0; }
+
+.preview-article { max-width: 720px; margin: 0 auto; padding: 0 24px 80px; }
+.preview-hero { width: 100%; max-height: 420px; object-fit: cover; display: block; margin-top: 32px; border-radius: 10px; }
+.preview-content { padding-top: 40px; }
+.preview-hero + .preview-content { padding-top: 32px; }
+
+.preview-tags { display: flex; gap: 6px; margin-bottom: 14px; }
+
+.preview-headline { font-family: var(--font-display); font-weight: 600; font-size: 38px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.01em; }
+.preview-subheadline { font-size: 18px; color: var(--ink-soft); margin: 0 0 16px; line-height: 1.5; }
+.preview-prose h2, .preview-prose h3 { font-family: var(--font-display); font-weight: 600; }
+.preview-byline { font-size: 12.5px; color: var(--ink-faint); margin-bottom: 36px; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
+
+.preview-prose { font-size: 17px; line-height: 1.75; color: var(--ink); }
+.preview-prose p { margin: 0 0 20px; }
+.preview-prose h2 { font-size: 24px; margin: 36px 0 14px; }
+.preview-prose h3 { font-size: 19px; margin: 28px 0 12px; }
+.preview-prose img { max-width: 100%; border-radius: 8px; }
+.preview-prose a { color: var(--accent); }
+.preview-prose ul, .preview-prose ol { margin: 0 0 20px; padding-left: 22px; }
+.preview-prose blockquote { margin: 0 0 20px; padding-left: 18px; border-left: 3px solid var(--line); color: var(--ink-soft); }

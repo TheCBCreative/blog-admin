@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizePostHtml } from '../src/core/sanitize.js';
+import { sanitizePostHtml, createSanitizer } from '../src/core/sanitize.js';
 
 /**
  * These are the tests that matter most in the whole package. A regression here
@@ -149,5 +149,13 @@ describe('edge cases', () => {
     const dirty = '<p>ok</p><script>bad()</script><a href="https://x.example">l</a>';
     const once = sanitizePostHtml(dirty);
     expect(sanitizePostHtml(once)).toBe(once);
+  });
+});
+
+describe('createSanitizer', () => {
+  it('returns a function equivalent to sanitizePostHtml, for PostService to call', () => {
+    const sanitize = createSanitizer();
+    const dirty = '<p>ok</p><script>bad()</script>';
+    expect(sanitize(dirty)).toBe(sanitizePostHtml(dirty));
   });
 });

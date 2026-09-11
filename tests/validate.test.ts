@@ -23,6 +23,20 @@ describe('headline', () => {
   });
 });
 
+describe('other length caps', () => {
+  it('caps subheadline length', () => {
+    expect(
+      fieldsWithErrors({ ...base, subheadline: 'a'.repeat(LIMITS.subheadline + 1) }),
+    ).toContain('subheadline');
+  });
+
+  it('caps excerpt length', () => {
+    expect(fieldsWithErrors({ ...base, excerpt: 'a'.repeat(LIMITS.excerpt + 1) })).toContain(
+      'excerpt',
+    );
+  });
+});
+
 describe('alt text enforcement', () => {
   it('requires alt text when an image is present', () => {
     const errors = fieldsWithErrors({ ...base, featuredImage: { url: '/img.jpg' } });
@@ -44,6 +58,30 @@ describe('alt text enforcement', () => {
 
   it('does not require alt text when there is no image', () => {
     expect(fieldsWithErrors(base)).not.toContain('featuredImage.alt');
+  });
+
+  it('caps alt text length', () => {
+    const errors = fieldsWithErrors({
+      ...base,
+      featuredImage: { url: '/img.jpg', alt: 'a'.repeat(LIMITS.alt + 1) },
+    });
+    expect(errors).toContain('featuredImage.alt');
+  });
+});
+
+describe('status', () => {
+  it('rejects a status the app does not recognize', () => {
+    expect(
+      fieldsWithErrors({ ...base, status: 'archived-forever' } as unknown as PostInput),
+    ).toContain('status');
+  });
+
+  it('accepts every real status', () => {
+    for (const status of ['draft', 'scheduled', 'published'] as const) {
+      expect(
+        fieldsWithErrors({ ...base, status, publishAt: new Date('2026-08-19T13:00:00Z') }),
+      ).not.toContain('status');
+    }
   });
 });
 

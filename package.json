@@ -24,6 +24,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "db:migrate": "node scripts/migrate.mjs",
     "db:seed-admin": "tsx scripts/seed-admin.ts",
@@ -33,6 +34,7 @@
   "devDependencies": {
     "@types/node": "^26.1.2",
     "@types/sanitize-html": "^2.13.0",
+    "@vitest/coverage-v8": "^3.2.7",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
