@@ -21,4 +21,17 @@ export default defineConfig({
   adapter: vercel(),
   integrations: [react()],
   server: { port: 4321 },
+  // The demo depends on the package via `file:..`, which npm installs as a
+  // symlink. Vite resolves symlinks to their real path by default, so an
+  // import inside the linked package's source (e.g. src/adapters/neon)
+  // gets resolved from the *real* repo-root location rather than from
+  // inside demo/node_modules — which means demo's own node_modules (where
+  // its dependencies, like @neondatabase/serverless, actually live) is
+  // never in the ancestor chain Node's resolver walks. Turning off symlink
+  // resolution keeps resolution anchored inside demo/node_modules instead.
+  vite: {
+    resolve: {
+      preserveSymlinks: true,
+    },
+  },
 });
