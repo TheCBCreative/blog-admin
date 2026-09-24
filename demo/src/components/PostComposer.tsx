@@ -129,7 +129,10 @@ export default function PostComposer({ mode, post, layouts, isSeed = false }: Pr
     }
 
     const data = await res.json();
-    if (mode === 'create') {
+    if (formMode === 'publish') {
+      // Land on the dashboard so the new status and counts are visible.
+      window.location.href = withBase(`/admin?published=${encodeURIComponent(data.post.id)}`);
+    } else if (mode === 'create') {
       window.location.href = withBase(`/admin/posts/${data.post.id}/edit`);
     } else {
       setSavedNote('Saved.');

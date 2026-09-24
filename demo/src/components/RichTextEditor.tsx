@@ -69,6 +69,7 @@ export default function RichTextEditor({ id, value, onChange, onBlur }: Props) {
 
   const [status, setStatus] = useState('Loading editor…');
   const [failed, setFailed] = useState(false);
+  const [ready, setReady] = useState(false);
   const [active, setActive] = useState<Partial<Record<Action, boolean>>>({});
 
   onChangeRef.current = onChange;
@@ -85,6 +86,11 @@ export default function RichTextEditor({ id, value, onChange, onBlur }: Props) {
           import(/* @vite-ignore */ `${CDN}/@tiptap/extension-link@${TIPTAP_VERSION}`),
         ]);
         if (cancelled || !surfaceRef.current) return;
+
+        // Tiptap appends its own editable element inside `element` rather than
+        // taking it over, so the pre-rendered fallback HTML has to go first —
+        // otherwise the body shows twice (fallback copy, then the live editor).
+        surfaceRef.current.innerHTML = '';
 
         const promptForLink = () => {
           const editor = editorRef.current;
@@ -151,6 +157,7 @@ export default function RichTextEditor({ id, value, onChange, onBlur }: Props) {
         syncActive();
 
         setStatus('');
+        setReady(true);
       } catch (error) {
         if (cancelled) return;
         console.error('Editor failed to load', error);
@@ -217,7 +224,7 @@ export default function RichTextEditor({ id, value, onChange, onBlur }: Props) {
           editor initializes, and readable if the CDN fails. */}
       <div
         ref={surfaceRef}
-        className="editor-surface"
+        className={`editor-surface${ready ? ' is-ready' : ''}`}
         suppressContentEditableWarning
         dangerouslySetInnerHTML={{ __html: initialValueRef.current }}
       />

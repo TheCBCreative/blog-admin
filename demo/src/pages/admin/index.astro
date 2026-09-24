@@ -15,6 +15,11 @@ const [draft, scheduled, published, archived, recent] = await Promise.all([
   service.count('archived'),
   service.list({ limit: 6 }),
 ]);
+
+// Set by PostComposer after a successful publish. Looked up rather than
+// trusting a headline from the URL.
+const publishedId = Astro.url.searchParams.get('published');
+const justPublished = publishedId ? await service.get(publishedId) : null;
 ---
 <AdminLayout title="Dashboard" active="dashboard">
   <div class="page-header">
@@ -25,6 +30,12 @@ const [draft, scheduled, published, archived, recent] = await Promise.all([
     </div>
     <a class="btn btn-primary" href={withBase('/admin/posts/new')}>+ New Post</a>
   </div>
+
+  {justPublished && (
+    <div class="flash-success" role="status">
+      “{justPublished.headline}” was published.
+    </div>
+  )}
 
   <DashboardStats client:load counts={{ draft, scheduled, published, archived }} />
 
@@ -51,3 +62,12 @@ const [draft, scheduled, published, archived, recent] = await Promise.all([
     )}
   </div>
 </AdminLayout>
+
+<script>
+  // Drop the one-shot flag so a reload doesn't show the banner again.
+  const url = new URL(window.location.href);
+  if (url.searchParams.has('published')) {
+    url.searchParams.delete('published');
+    history.replaceState(null, '', url);
+  }
+</script>

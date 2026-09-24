@@ -216,6 +216,12 @@ td.headline a:hover { text-decoration: underline; }
   color: var(--ink);
 }
 .editor-surface:focus { outline: none; }
+/* Once Tiptap is mounted, its editable element takes over the box's size and
+   padding, so a click anywhere in the box — not just on the first line —
+   lands in the editor. */
+.editor-surface.is-ready { padding: 0; }
+.editor-surface .ProseMirror { min-height: 260px; padding: 12px 14px; box-sizing: border-box; cursor: text; }
+.editor-surface .ProseMirror:focus { outline: none; }
 /* Lists inherit no default padding from a reset here, but Tiptap's own list
    items need the same left indent the rest of the admin doesn't otherwise set. */
 .editor-surface ul, .editor-surface ol { padding-inline-start: 1.25em; margin: 0.5em 0; }
@@ -233,6 +239,7 @@ td.headline a:hover { text-decoration: underline; }
 .login-card h1 { font-family: var(--font-display); font-weight: 600; font-size: 20px; margin: 0 0 4px; }
 .login-card p.sub { color: var(--ink-faint); font-size: 13px; margin: 0 0 20px; }
 .demo-creds { background: var(--accent-soft); border-radius: 6px; padding: 10px 12px; font-size: 12px; font-family: var(--font-mono); margin-bottom: 20px; color: var(--accent-ink); }
+.flash-success { background: #e6f4ea; color: #1e7a34; border-radius: 6px; padding: 10px 14px; font-size: 13px; margin-bottom: 20px; }
 .form-error { background: #fdecea; color: var(--danger); border-radius: 6px; padding: 8px 12px; font-size: 12.5px; margin-bottom: 14px; }
 
 .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-top: 16px; }
