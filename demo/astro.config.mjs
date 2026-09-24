@@ -1,6 +1,6 @@
 import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
-import node from '@astrojs/node';
+import vercel from '@astrojs/vercel';
 
 // Load demo/.env into process.env before anything else runs. Astro/Vite's
 // own env handling only guarantees import.meta.env for VITE_-prefixed vars —
@@ -18,7 +18,7 @@ try {
 // Postgres reads/writes, so pages can't be statically prerendered.
 export default defineConfig({
   output: 'server',
-  adapter: node({ mode: 'standalone' }),
+  adapter: vercel(),
   integrations: [react()],
   server: { port: 4321 },
 });
