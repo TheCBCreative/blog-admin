@@ -21,11 +21,6 @@ export default defineConfig({
   adapter: vercel(),
   integrations: [react()],
   server: { port: 4321 },
-  // Served in production at caitburke.dev/work/blog-composer/demo, proxied
-  // there by the portfolio's own vercel.json. Astro needs to know that base
-  // so every generated asset/route URL in the HTML comes out prefixed to
-  // match — otherwise the proxy serves the page fine but its JS/CSS 404s.
-  base: '/work/blog-composer/demo',
   // The demo depends on the package via `file:..`, which npm installs as a
   // symlink. Vite resolves symlinks to their real path by default, so an
   // import inside the linked package's source (e.g. src/adapters/neon)
