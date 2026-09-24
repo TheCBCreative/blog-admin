@@ -12,7 +12,14 @@ export function getAuth(): BlogAuth {
   if (_auth) return _auth;
 
   const databaseUrl = process.env.DATABASE_URL;
-  const baseUrl = process.env.BETTER_AUTH_URL ?? 'http://localhost:4321';
+  // BETTER_AUTH_URL is the public URL, which includes the portfolio's
+  // /work/blog-composer/demo prefix. Better Auth treats any path in baseURL as
+  // its own route root, so it would only answer at /work/blog-composer/demo/*.
+  // The portfolio proxy strips that prefix before requests reach this app, so
+  // auth routes actually arrive at /api/auth/*. Passing only the origin makes
+  // Better Auth fall back to its default /api/auth base path, which matches.
+  const publicUrl = process.env.BETTER_AUTH_URL ?? 'http://localhost:4321';
+  const baseUrl = new URL(publicUrl).origin;
   const secret = process.env.BETTER_AUTH_SECRET;
 
   if (!databaseUrl) throw new Error('DATABASE_URL is not set.');
