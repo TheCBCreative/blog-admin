@@ -31,5 +31,8 @@
     "@types/react-dom": "^18.3.1",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"
+  },
+  "overrides": {
+    "htmlparser2": "9.1.0"
   }
 }
