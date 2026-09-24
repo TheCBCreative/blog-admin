@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { createAuthClient } from '@thecbcreative/blog-admin/client';
+import { withBase } from '../lib/base-path';
 
-const authClient = createAuthClient();
+const authClient = createAuthClient({ basePath: withBase('/api/auth') });
 
 interface Props {
   next: string;
@@ -27,7 +28,7 @@ export default function LoginForm({ next, demoEmail, demoPassword }: Props) {
       setError(result.message);
       return;
     }
-    window.location.href = next;
+    window.location.href = withBase(next);
   }
 
   return (

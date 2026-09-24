@@ -18,6 +18,15 @@ export interface GuardOptions {
   auth: BlogAuth;
   /** Where to send unauthenticated users. Always treated as public. */
   loginPath?: string;
+  /**
+   * Prepended only to the outgoing redirect Location header, never used for
+   * matching incoming request paths. For a consumer deployed behind a
+   * proxy that strips a path prefix before the request reaches this app
+   * (so `pathname` here is always the unprefixed, real route) but whose
+   * redirect needs to resolve in the browser against the public, prefixed
+   * URL instead.
+   */
+  publicPrefix?: string;
   /** Path prefixes requiring a session. */
   protectedPrefixes?: string[];
   /** Prefixes returning 401 JSON rather than redirecting. */
@@ -158,7 +167,7 @@ export function createAdminGuard(options: GuardOptions) {
 
     // Preserve where they were headed so login can bounce them back.
     const target = encodeURIComponent(pathname + context.url.search);
-    return context.redirect(`${loginPath}?next=${target}`, 302);
+    return context.redirect(`${options.publicPrefix ?? ''}${loginPath}?next=${target}`, 302);
   };
 }
 

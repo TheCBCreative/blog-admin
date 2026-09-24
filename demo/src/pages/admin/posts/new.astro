@@ -2,6 +2,7 @@
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import PostComposer from '../../../components/PostComposer.tsx';
 import { DEMO_LAYOUTS } from '../../../lib/store';
+import { withBase } from '../../../lib/base-path';
 
 export const prerender = false;
 ---
@@ -12,7 +13,7 @@ export const prerender = false;
       <h1>New Post</h1>
       <p>Draft, schedule, or publish immediately.</p>
     </div>
-    <a class="btn btn-ghost" href="/admin/posts">← Back to posts</a>
+    <a class="btn btn-ghost" href={withBase('/admin/posts')}>← Back to posts</a>
   </div>
 
   <PostComposer client:load mode="create" layouts={[...DEMO_LAYOUTS]} />

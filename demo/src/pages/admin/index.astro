@@ -3,6 +3,7 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
 import DashboardStats from '../../components/DashboardStats.tsx';
 import { getPostService } from '../../lib/store';
 import { displayStatus } from '@thecbcreative/blog-admin/core';
+import { withBase } from '../../lib/base-path';
 
 export const prerender = false;
 
@@ -22,7 +23,7 @@ const [draft, scheduled, published, archived, recent] = await Promise.all([
       <h1>Dashboard</h1>
       <p>An overview of everything in this seeded demo.</p>
     </div>
-    <a class="btn btn-primary" href="/admin/posts/new">+ New Post</a>
+    <a class="btn btn-primary" href={withBase('/admin/posts/new')}>+ New Post</a>
   </div>
 
   <DashboardStats client:load counts={{ draft, scheduled, published, archived }} />
@@ -39,7 +40,7 @@ const [draft, scheduled, published, archived, recent] = await Promise.all([
         <tbody>
           {recent.map((p) => (
             <tr>
-              <td class="headline"><a href={`/admin/posts/${p.id}/edit`}>{p.headline}</a></td>
+              <td class="headline"><a href={withBase(`/admin/posts/${p.id}/edit`)}>{p.headline}</a></td>
               <td><span class={`badge badge-${displayStatus(p)}`}>{displayStatus(p)}</span></td>
               <td>{p.authorName}</td>
               <td>{p.updatedAt.toLocaleDateString()}</td>

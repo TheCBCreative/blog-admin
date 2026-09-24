@@ -1,3 +1,4 @@
 ---
-return Astro.redirect('/admin');
+import { withBase } from '../lib/base-path';
+return Astro.redirect(withBase('/admin'));
 ---

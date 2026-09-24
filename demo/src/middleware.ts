@@ -1,5 +1,6 @@
 import { defineMiddleware } from 'astro:middleware';
 import { createAdminGuard } from '@thecbcreative/blog-admin/auth';
+import { BASE_PATH } from './lib/base-path';
 import { getAuth } from './lib/auth';
 import { getPostService } from './lib/store';
 import { cleanupExpiredDemoPosts } from './lib/demo-cleanup';
@@ -9,6 +10,7 @@ const guard = createAdminGuard({
   loginPath: '/admin/login',
   protectedPrefixes: ['/admin'],
   apiPrefixes: ['/api/admin'],
+  publicPrefix: BASE_PATH,
 });
 
 // Traffic-driven cleanup: the demo has no worker process, and a Hobby-tier

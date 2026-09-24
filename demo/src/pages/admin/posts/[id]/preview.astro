@@ -3,6 +3,7 @@ import '../../../../styles/admin.css';
 import { displayStatus } from '@thecbcreative/blog-admin';
 import { getPostService } from '../../../../lib/store';
 import { visibleTags } from '../../../../lib/demo-cleanup';
+import { withBase } from '../../../../lib/base-path';
 
 export const prerender = false;
 
@@ -10,7 +11,7 @@ const { id } = Astro.params;
 const post = await getPostService().get(id!);
 
 if (!post) {
-  return Astro.redirect('/admin/posts');
+  return Astro.redirect(withBase('/admin/posts'));
 }
 
 const status = displayStatus(post);
@@ -46,7 +47,7 @@ const publishedDate = (post.publishedAt ?? post.createdAt).toLocaleDateString('e
   <body class="preview-body">
     <div class={`preview-bar preview-bar-${status}`}>
       <span><strong>Preview</strong> — {STATUS_COPY[status]}</span>
-      <a class="btn" href={`/admin/posts/${post.id}/edit`}>← Back to editor</a>
+      <a class="btn" href={withBase(`/admin/posts/${post.id}/edit`)}>← Back to editor</a>
     </div>
 
     <article class="preview-article">

@@ -7,6 +7,7 @@ import {
   type PostFormValues,
 } from '@thecbcreative/blog-admin/client';
 import { SEED_TAG } from '../lib/demo-cleanup';
+import { withBase } from '../lib/base-path';
 import RichTextEditor from './RichTextEditor';
 
 interface ExistingPost {
@@ -106,7 +107,7 @@ export default function PostComposer({ mode, post, layouts, isSeed = false }: Pr
       featuredImage: imageUrl ? { url: imageUrl, alt: imageAlt } : undefined,
     };
 
-    const url = mode === 'edit' ? `/api/admin/posts/${post!.id}` : '/api/admin/posts';
+    const url = withBase(mode === 'edit' ? `/api/admin/posts/${post!.id}` : '/api/admin/posts');
     const method = mode === 'edit' ? 'PATCH' : 'POST';
 
     const res = await fetch(url, {
@@ -129,7 +130,7 @@ export default function PostComposer({ mode, post, layouts, isSeed = false }: Pr
 
     const data = await res.json();
     if (mode === 'create') {
-      window.location.href = `/admin/posts/${data.post.id}/edit`;
+      window.location.href = withBase(`/admin/posts/${data.post.id}/edit`);
     } else {
       setSavedNote('Saved.');
     }
@@ -159,7 +160,7 @@ export default function PostComposer({ mode, post, layouts, isSeed = false }: Pr
       // silently revert it to draft.
       const { status: _status, publishAt: _publishAt, ...fields } = serializePostForm(values);
       const tags = isSeed ? [...fields.tags, SEED_TAG] : fields.tags;
-      const res = await fetch(`/api/admin/posts/${post!.id}`, {
+      const res = await fetch(withBase(`/api/admin/posts/${post!.id}`), {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ ...fields, tags, featuredImage }),
@@ -177,14 +178,14 @@ export default function PostComposer({ mode, post, layouts, isSeed = false }: Pr
         return;
       }
       setSavedNote('Saved and opened preview.');
-      if (tab) tab.location.href = `/admin/posts/${post!.id}/preview`;
+      if (tab) tab.location.href = withBase(`/admin/posts/${post!.id}/preview`);
       return;
     }
 
     // Creating: there's no row to preview yet, so save this as a draft first
     // (same as clicking "Save Draft") and preview that.
     const payload = { ...serializePostForm(values), featuredImage };
-    const res = await fetch('/api/admin/posts', {
+    const res = await fetch(withBase('/api/admin/posts'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(payload),
@@ -203,8 +204,8 @@ export default function PostComposer({ mode, post, layouts, isSeed = false }: Pr
     }
 
     const data = await res.json();
-    if (tab) tab.location.href = `/admin/posts/${data.post.id}/preview`;
-    window.location.href = `/admin/posts/${data.post.id}/edit`;
+    if (tab) tab.location.href = withBase(`/admin/posts/${data.post.id}/preview`);
+    window.location.href = withBase(`/admin/posts/${data.post.id}/edit`);
   }
 
   const formError = errorFor('form');
@@ -291,7 +292,7 @@ export default function PostComposer({ mode, post, layouts, isSeed = false }: Pr
             {errorFor('featuredImage.alt') && <div className="error-msg">{errorFor('featuredImage.alt')}</div>}
           </div>
           <div className="hint" style={{ marginTop: 10 }}>
-            Grab a URL from the <a href="/admin/media">Media Library</a>.
+            Grab a URL from the <a href={withBase('/admin/media')}>Media Library</a>.
           </div>
         </div>
 

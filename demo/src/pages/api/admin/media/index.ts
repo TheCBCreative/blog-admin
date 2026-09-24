@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { withAuth } from '@thecbcreative/blog-admin/auth';
 import { getAuth } from '../../../../lib/auth';
 import { createLocalDiskMediaStore } from '../../../../lib/media-store';
+import { withBase } from '../../../../lib/base-path';
 
 export const prerender = false;
 
@@ -22,7 +23,9 @@ export const GET: APIRoute = withAuth(getAuth(), async () => {
       .filter((f) => !f.startsWith('.'))
       .map(async (f) => {
         const s = await stat(join(UPLOAD_DIR, f));
-        return { url: `/uploads/${f}`, name: f, bytes: s.size, uploadedAt: s.mtime };
+        // Stored/matched internally as an unprefixed path (see media-store.ts's
+        // delete()) — only prefixed here, at the point it's sent to the browser.
+        return { url: withBase(`/uploads/${f}`), name: f, bytes: s.size, uploadedAt: s.mtime };
       }),
   );
 
@@ -40,7 +43,9 @@ export const POST: APIRoute = withAuth(getAuth(), async ({ request }) => {
 
   try {
     const media = await createLocalDiskMediaStore().upload(file);
-    return new Response(JSON.stringify({ media }), {
+    // Same as GET above: prefix only in the outbound response, never in the
+    // internally-stored/matched value.
+    return new Response(JSON.stringify({ media: { ...media, url: withBase(media.url) } }), {
       status: 201,
       headers: { 'content-type': 'application/json' },
     });

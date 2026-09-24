@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { withBase } from '../lib/base-path';
 
 interface MediaItem {
   url: string;
@@ -16,7 +17,7 @@ export default function MediaLibrary() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
-    const res = await fetch('/api/admin/media');
+    const res = await fetch(withBase('/api/admin/media'));
     const data = await res.json();
     setItems(data.items);
   }, []);
@@ -30,7 +31,7 @@ export default function MediaLibrary() {
     setError(null);
     const form = new FormData();
     form.append('file', file);
-    const res = await fetch('/api/admin/media', { method: 'POST', body: form });
+    const res = await fetch(withBase('/api/admin/media'), { method: 'POST', body: form });
     setUploading(false);
 
     if (!res.ok) {

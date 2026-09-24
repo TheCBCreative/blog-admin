@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { isSeedPost, visibleTags } from '../lib/demo-cleanup';
+import { withBase } from '../lib/base-path';
 
 interface Post {
   id: string;
@@ -33,7 +34,7 @@ export default function PostList() {
   const load = useCallback(async (status: string) => {
     setPosts(null);
     const qs = status === 'all' ? '' : `?status=${status}`;
-    const res = await fetch(`/api/admin/posts${qs}`);
+    const res = await fetch(withBase(`/api/admin/posts${qs}`));
     if (!res.ok) {
       setError('Could not load posts.');
       setPosts([]);
@@ -50,7 +51,7 @@ export default function PostList() {
   async function onDelete(id: string, headline: string) {
     if (!window.confirm(`Delete "${headline}"? This can't be undone in the demo either.`)) return;
     setBusyId(id);
-    await fetch(`/api/admin/posts/${id}`, { method: 'DELETE' });
+    await fetch(withBase(`/api/admin/posts/${id}`), { method: 'DELETE' });
     setBusyId(null);
     load(tab);
   }
@@ -87,7 +88,7 @@ export default function PostList() {
               {posts.map((p) => (
                 <tr key={p.id}>
                   <td className="headline">
-                    <a href={`/admin/posts/${p.id}/edit`}>{p.headline}</a>
+                    <a href={withBase(`/admin/posts/${p.id}/edit`)}>{p.headline}</a>
                     {isSeedPost(p.tags) && (
                       <span className="badge badge-draft" style={{ marginLeft: 8 }}>
                         Placeholder
