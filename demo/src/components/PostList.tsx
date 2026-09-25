@@ -51,8 +51,13 @@ export default function PostList() {
   async function onDelete(id: string, headline: string) {
     if (!window.confirm(`Delete "${headline}"? This can't be undone in the demo either.`)) return;
     setBusyId(id);
-    await fetch(withBase(`/api/admin/posts/${id}`), { method: 'DELETE' });
+    setError(null);
+    const res = await fetch(withBase(`/api/admin/posts/${id}`), { method: 'DELETE' });
     setBusyId(null);
+    if (!res.ok) {
+      setError(`Could not delete "${headline}".`);
+      return;
+    }
     load(tab);
   }
 

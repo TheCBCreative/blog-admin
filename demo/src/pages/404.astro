@@ -1,0 +1,35 @@
+---
+import { withBase } from '../lib/base-path';
+
+// The demo is served inside the portfolio at caitburke.dev/work/blog-composer/demo,
+// so unknown demo URLs hand off to the portfolio's 404 page instead of keeping
+// a second design. BETTER_AUTH_URL is the demo's public URL, so its origin is
+// the portfolio's.
+//
+// Only redirect when that origin is a different server. In local dev it's
+// this same server, and redirecting to /404 would loop back here.
+const publicUrl = process.env.BETTER_AUTH_URL;
+const portfolioOrigin = publicUrl ? new URL(publicUrl).origin : undefined;
+
+if (portfolioOrigin && portfolioOrigin !== Astro.url.origin) {
+  return Astro.redirect(`${portfolioOrigin}/404`, 302);
+}
+
+Astro.response.status = 404;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Page not found — Blog Composer</title>
+  </head>
+  <body>
+    <main>
+      <h1>Page not found</h1>
+      <p><a href={withBase('/admin')}>Go to the admin</a></p>
+    </main>
+  </body>
+</html>

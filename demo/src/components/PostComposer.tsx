@@ -66,6 +66,7 @@ export default function PostComposer({ mode, post, layouts, isSeed = false }: Pr
 
   const [saving, setSaving] = useState<PostFormMode | null>(null);
   const [previewing, setPreviewing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [errors, setErrors] = useState<FieldError[]>([]);
   const [savedNote, setSavedNote] = useState<string | null>(null);
 
@@ -211,6 +212,22 @@ export default function PostComposer({ mode, post, layouts, isSeed = false }: Pr
     window.location.href = withBase(`/admin/posts/${data.post.id}/edit`);
   }
 
+  async function remove() {
+    if (!window.confirm(`Delete "${post!.headline}"? This can't be undone.`)) return;
+    setDeleting(true);
+    setErrors([]);
+    setSavedNote(null);
+
+    const res = await fetch(withBase(`/api/admin/posts/${post!.id}`), { method: 'DELETE' });
+    if (!res.ok) {
+      setDeleting(false);
+      setErrors([{ field: 'form', message: 'Something went wrong deleting this post.' }]);
+      return;
+    }
+    window.location.href = withBase('/admin?deleted=1');
+  }
+
+  const busy = saving !== null || previewing || deleting;
   const formError = errorFor('form');
 
   return (
@@ -300,19 +317,28 @@ export default function PostComposer({ mode, post, layouts, isSeed = false }: Pr
         </div>
 
         <div className="form-actions">
-          <button className="btn" disabled={saving !== null || previewing} onClick={preview}>
+          <button className="btn" disabled={busy} onClick={preview}>
             {previewing ? 'Opening…' : 'Preview'}
           </button>
-          <button className="btn" disabled={saving !== null || previewing} onClick={() => save('draft')}>
+          <button className="btn" disabled={busy} onClick={() => save('draft')}>
             {saving === 'draft' ? 'Saving…' : 'Save Draft'}
           </button>
-          <button className="btn" disabled={saving !== null || previewing} onClick={() => save('schedule')}>
+          <button className="btn" disabled={busy} onClick={() => save('schedule')}>
             {saving === 'schedule' ? 'Scheduling…' : 'Schedule'}
           </button>
-          <button className="btn btn-primary" disabled={saving !== null || previewing} onClick={() => save('publish')}>
+          <button className="btn btn-primary" disabled={busy} onClick={() => save('publish')}>
             {saving === 'publish' ? 'Publishing…' : 'Publish'}
           </button>
         </div>
+
+        {mode === 'edit' && (
+          <div className="danger-zone">
+            <button className="btn-text-danger" disabled={busy} onClick={remove}>
+              {deleting ? 'Deleting…' : 'Delete post'}
+            </button>
+          </div>
+        )}
+
       </div>
     </div>
   );

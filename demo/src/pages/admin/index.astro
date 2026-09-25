@@ -20,6 +20,7 @@ const [draft, scheduled, published, archived, recent] = await Promise.all([
 // trusting a headline from the URL.
 const publishedId = Astro.url.searchParams.get('published');
 const justPublished = publishedId ? await service.get(publishedId) : null;
+const justDeleted = Astro.url.searchParams.has('deleted');
 ---
 <AdminLayout title="Dashboard" active="dashboard">
   <div class="page-header">
@@ -35,6 +36,10 @@ const justPublished = publishedId ? await service.get(publishedId) : null;
     <div class="flash-success" role="status">
       “{justPublished.headline}” was published.
     </div>
+  )}
+
+  {justDeleted && (
+    <div class="flash-success" role="status">Post deleted.</div>
   )}
 
   <DashboardStats client:load counts={{ draft, scheduled, published, archived }} />
@@ -64,10 +69,11 @@ const justPublished = publishedId ? await service.get(publishedId) : null;
 </AdminLayout>
 
 <script>
-  // Drop the one-shot flag so a reload doesn't show the banner again.
+  // Drop the one-shot flags so a reload doesn't show the banner again.
   const url = new URL(window.location.href);
-  if (url.searchParams.has('published')) {
+  if (url.searchParams.has('published') || url.searchParams.has('deleted')) {
     url.searchParams.delete('published');
+    url.searchParams.delete('deleted');
     history.replaceState(null, '', url);
   }
 </script>

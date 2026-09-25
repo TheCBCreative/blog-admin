@@ -233,6 +233,13 @@ td.headline a:hover { text-decoration: underline; }
 
 .form-grid { display: grid; grid-template-columns: 1fr 260px; gap: 24px; align-items: start; }
 .form-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+/* Destructive action sits with the other post actions but set apart below
+   a divider, and styled quieter than them, so it's findable without being
+   a misclick away from Publish. */
+.danger-zone { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+.btn-text-danger { background: none; border: 0; padding: 2px 0; color: var(--danger); font-family: inherit; font-size: 12.5px; cursor: pointer; }
+.btn-text-danger:hover { text-decoration: underline; }
+.btn-text-danger:disabled { opacity: 0.5; cursor: not-allowed; text-decoration: none; }
 
 .login-shell { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--ink); }
 .login-card { width: 360px; background: var(--surface); border-radius: 10px; padding: 32px; }
