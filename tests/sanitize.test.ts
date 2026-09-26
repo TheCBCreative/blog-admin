@@ -120,8 +120,11 @@ describe('link hardening', () => {
   });
 
   it('does not force new tabs on internal links', () => {
-    const out = sanitizePostHtml('<a href="/about/">x</a>');
-    expect(out).not.toContain('target="_blank"');
+    expect(sanitizePostHtml('<a href="/about/">x</a>')).toBe('<a href="/about/">x</a>');
+  });
+
+  it('drops an author-supplied target and rel on internal links', () => {
+    expect(sanitizePostHtml('<a href="/about/" target="_blank" rel="nofollow">x</a>')).toBe('<a href="/about/">x</a>');
   });
 
   it('overrides an attacker-supplied rel on an external link', () => {

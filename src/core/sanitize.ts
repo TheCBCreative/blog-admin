@@ -1,32 +1,23 @@
 /**
  * HTML sanitization for post bodies.
  *
- * ── Threat model ────────────────────────────────────────────────────────────
- * Only an authenticated admin can write HTML, so there's no untrusted
- * contributor path. This exists as containment: if an admin credential ever
- * leaks, or someone pastes markup from Word or a random website, stored XSS on
- * the public site would let an attacker run script against every visitor. That's
- * meaningfully worse than defacement.
+ * Only admins write HTML; this contains stored XSS from a leaked credential or
+ * pasted markup. Sanitize on save AND on render — client-side alone is bypassed
+ * by a direct POST.
  *
- * Sanitize on save AND on render. Client-side sanitization alone is worthless —
- * anyone can POST directly to the API.
- *
- * Known limitation: sanitize-html is parser-based, not DOM-based, so it can't
- * fully neutralize mutation-XSS the way DOMPurify does. Acceptable here because
- * the allowlist below excludes the exotic tags (svg, math, noscript, template)
- * that mXSS payloads rely on. Revisit if untrusted authors are ever added.
+ * sanitize-html is parser-based and can't fully stop mutation-XSS the way
+ * DOMPurify can. That's acceptable only because the allowlist excludes the tags
+ * mXSS relies on (svg, math, noscript, template); revisit if untrusted authors
+ * are ever added.
  */
 
 import sanitizeHtml from 'sanitize-html';
 import { normalizeLinkHref } from './link.js';
 
 /**
- * Exactly the tags the editor can produce, and nothing else.
- *
- * Deliberately excluded: h1 (the post headline owns that, and a second h1
- * damages document outline and SEO), img (images go through the media store so
- * they get alt text and dimensions), iframe/script/style/form, and every
- * embedding tag.
+ * Exactly the tags the editor can produce. h1 is excluded because the headline
+ * owns it; img because images go through the media store to get alt text and
+ * dimensions.
  */
 export const ALLOWED_TAGS = [
   'p',
@@ -64,29 +55,18 @@ const options: sanitizeHtml.IOptions = {
   disallowedTagsMode: 'discard',
 
   transformTags: {
-    /**
-     * External links get rel="noopener noreferrer". Without noopener, the opened
-     * page can reach back through window.opener; noreferrer avoids leaking the
-     * referring URL. Internal links are left alone so in-site navigation doesn't
-     * open new tabs.
-     */
-    a: (tagName, attribs) => {
-      // Bare domains get https:// here, so "example.com" doesn't resolve as a
-      // path relative to the post's own URL.
+    // External links open in a new tab with noopener (blocks window.opener
+    // access) and noreferrer; internal links stay in the same tab.
+    a: (tagName, { target: _target, rel: _rel, ...attribs }) => {
       const href = normalizeLinkHref(attribs.href ?? '');
       const isExternal = /^https?:\/\//i.test(href);
 
       return {
         tagName,
-        attribs: isExternal
-          ? { ...attribs, href, target: '_blank', rel: 'noopener noreferrer' }
-          : { ...attribs, href, target: '', rel: '' },
+        attribs: isExternal ? { ...attribs, href, target: '_blank', rel: 'noopener noreferrer' } : { ...attribs, href },
       };
     },
   },
-
-  // Strip empty attributes left behind by the transform above.
-  nonBooleanAttributes: [],
 };
 
 /** Sanitizes a post body. Safe to render with set:html afterwards. */
@@ -95,9 +75,7 @@ export function sanitizePostHtml(dirty: string): string {
   return sanitizeHtml(dirty, options);
 }
 
-/**
- * Returns a sanitizer function, for passing to PostService's sanitizeHtml hook.
- */
+/** Returns a sanitizer function, for passing to PostService's sanitizeHtml hook. */
 export function createSanitizer(): (html: string) => string {
   return sanitizePostHtml;
 }
