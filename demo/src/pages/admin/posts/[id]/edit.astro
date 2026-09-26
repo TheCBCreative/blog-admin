@@ -1,7 +1,8 @@
 ---
 import AdminLayout from '../../../../layouts/AdminLayout.astro';
 import PostComposer from '../../../../components/PostComposer.tsx';
-import { getPostService, DEMO_LAYOUTS } from '../../../../lib/store';
+import { DEMO_LAYOUTS } from '../../../../lib/store';
+import { getSandboxedPostService } from '../../../../lib/sandbox-store';
 import { displayStatus } from '@thecbcreative/blog-admin/core';
 import { isSeedPost, visibleTags } from '../../../../lib/demo-cleanup';
 import { withBase } from '../../../../lib/base-path';
@@ -9,14 +10,13 @@ import { withBase } from '../../../../lib/base-path';
 export const prerender = false;
 
 const { id } = Astro.params;
-const post = await getPostService().get(id!);
+const post = await getSandboxedPostService(Astro.locals, Astro.cookies).get(id!);
 
 if (!post) {
   return Astro.redirect(withBase('/admin/posts'));
 }
 
-// Seeded placeholder posts are marked with an internal tag so cleanup never
-// deletes them — never expose that tag in the editor itself.
+// Saving a shared placeholder creates this visitor's private copy (lib/sandbox.ts).
 const isSeed = isSeedPost(post.tags);
 
 const serialized = {
@@ -48,5 +48,11 @@ const serialized = {
     <a class="btn btn-ghost" href={withBase('/admin/posts')}>← Back to posts</a>
   </div>
 
-  <PostComposer client:load mode="edit" post={serialized} layouts={[...DEMO_LAYOUTS]} isSeed={isSeed} />
+  {isSeed && (
+    <p class="sandbox-note" role="note">
+      This is a sample post. Your edits save as your own copy — other visitors still see the original.
+    </p>
+  )}
+
+  <PostComposer client:load mode="edit" post={serialized} layouts={[...DEMO_LAYOUTS]} sandboxId={Astro.locals.sandbox?.id} />
 </AdminLayout>

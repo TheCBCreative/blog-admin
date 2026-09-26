@@ -1,8 +1,6 @@
-// LOCAL DEVELOPMENT ONLY. Routes the @neondatabase/serverless driver through
-// a local WebSocket relay (see ../LOCAL_DEV.md) so `npm run db:setup` /
-// `db:seed` and `astro dev` can talk to a plain local Postgres instead of a
-// real Neon endpoint. Never used in production — the deployed app talks to a
-// real pooled Neon connection string directly.
+// Local development only: routes the @neondatabase/serverless driver through
+// a local WebSocket relay so it can talk to a plain Postgres (see
+// ../LOCAL_DEV.md). A no-op unless LOCAL_WS_RELAY is set.
 import { neonConfig } from '@neondatabase/serverless';
 
 const relay = process.env.LOCAL_WS_RELAY;

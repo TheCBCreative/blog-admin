@@ -1,19 +1,14 @@
 /**
- * Demo media store.
- *
- * The package defines a `MediaStore` interface but ships no concrete
- * implementation yet — a real client site is expected to wire its own S3/R2
- * adapter. This is a minimal one for the demo: writes to local disk under
- * public/uploads. Fine for showing the upload flow; NOT what a production
- * deployment should use, since Vercel's filesystem is ephemeral per
- * invocation. See DEMO_DEPLOY.md for wiring real object storage.
+ * Minimal `MediaStore` that writes to public/uploads on local disk. Not for
+ * production: Vercel's filesystem is ephemeral, so a client site wires its
+ * own S3/R2 adapter instead (see DEMO_DEPLOY.md).
  */
 import { writeFile, mkdir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { MediaStore, UploadedMedia } from '@thecbcreative/blog-admin/adapters';
 
-const UPLOAD_DIR = join(process.cwd(), 'public', 'uploads');
+export const UPLOAD_DIR = join(process.cwd(), 'public', 'uploads');
 
 export function createLocalDiskMediaStore(): MediaStore {
   return {
@@ -34,9 +29,7 @@ export function createLocalDiskMediaStore(): MediaStore {
 
       return {
         url: `/uploads/${name}`,
-        // Real dimensions would need an image-decoding pass; the demo just
-        // shows a fixed placeholder aspect since it's not the point being
-        // demonstrated here.
+        // Placeholder dimensions; real ones would need an image-decoding pass.
         width: 1200,
         height: 800,
         bytes: bytes.byteLength,

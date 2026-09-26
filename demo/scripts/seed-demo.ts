@@ -7,29 +7,26 @@
  */
 import './local-neon-shim.mjs';
 import { createBlogAuth } from '@thecbcreative/blog-admin/auth';
-import { createNeonPostStoreFromUrl } from '@thecbcreative/blog-admin/adapters/neon';
-import { createLocalPgPostStore } from '../src/lib/local-pg-store';
 import { createPostService } from '@thecbcreative/blog-admin/service';
 import { DEMO_EMAIL, DEMO_PASSWORD } from '../src/lib/demo-config';
-import { DEMO_LAYOUTS } from '../src/lib/store';
+import { DEMO_LAYOUTS, getPostStore } from '../src/lib/store';
 import { SEED_TAG } from '../src/lib/demo-cleanup';
 
-const { DATABASE_URL, BETTER_AUTH_SECRET, BETTER_AUTH_URL, LOCAL_PG } = process.env;
+const { DATABASE_URL, BETTER_AUTH_SECRET, BETTER_AUTH_URL } = process.env;
 
 if (!DATABASE_URL || !BETTER_AUTH_SECRET) {
   console.error('DATABASE_URL and BETTER_AUTH_SECRET must be set (see .env.example).');
   process.exit(1);
 }
 
-const store =
-  LOCAL_PG === 'true' ? createLocalPgPostStore(DATABASE_URL) : createNeonPostStoreFromUrl(DATABASE_URL);
-const service = createPostService(store, { defaultAuthorName: 'Cait Burke', layouts: DEMO_LAYOUTS });
+const AUTHOR_NAME = 'Cait Burke';
+const service = createPostService(getPostStore(), { defaultAuthorName: AUTHOR_NAME, layouts: DEMO_LAYOUTS });
 
 const auth = createBlogAuth({
   databaseUrl: DATABASE_URL,
   baseUrl: BETTER_AUTH_URL ?? 'http://localhost:4321',
   secret: BETTER_AUTH_SECRET,
-  allowSignUp: true, // deliberately, for this script only
+  allowSignUp: true, // only this script may create the account
 });
 
 async function ensureDemoAdmin() {
@@ -46,8 +43,9 @@ async function ensureDemoAdmin() {
   }
 }
 
-const daysAgo = (n: number) => new Date(Date.now() - n * 24 * 60 * 60 * 1000);
-const daysFromNow = (n: number) => new Date(Date.now() + n * 24 * 60 * 60 * 1000);
+const DAY_MS = 24 * 60 * 60 * 1000;
+const daysAgo = (n: number) => new Date(Date.now() - n * DAY_MS);
+const daysFromNow = (n: number) => new Date(Date.now() + n * DAY_MS);
 
 const POSTS = [
   {
@@ -131,10 +129,9 @@ async function seedPosts() {
         layout: DEMO_LAYOUTS[0],
         status: p.status,
         publishAt: 'publishAt' in p ? p.publishAt : undefined,
-        // Tagged as a placeholder so the demo-cleanup job (and the auto-delete
-        // on the live site) never touches it, no matter how old it gets.
+        // Marks it as a placeholder, which cleanup never deletes.
         tags: [...p.tags, SEED_TAG],
-        authorName: 'Cait Burke',
+        authorName: AUTHOR_NAME,
       },
       now,
     );

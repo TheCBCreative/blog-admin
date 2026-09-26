@@ -2,34 +2,27 @@ import type { APIRoute } from 'astro';
 import { withAuth } from '@thecbcreative/blog-admin/auth';
 import { isPostStatus } from '@thecbcreative/blog-admin/core';
 import { getAuth } from '../../../../lib/auth';
-import { getPostService } from '../../../../lib/store';
+import { json } from '../../../../lib/http';
+import { getSandboxedPostService } from '../../../../lib/sandbox-store';
 
 export const prerender = false;
 
-export const GET: APIRoute = withAuth(getAuth(), async ({ request }) => {
-  const url = new URL(request.url);
-  const statusParam = url.searchParams.get('status');
-  const status = statusParam && isPostStatus(statusParam) ? statusParam : undefined;
+// Handlers are wrapped so they can reach this request's cookies and locals:
+// every read and write goes through the visitor's sandbox (lib/sandbox.ts).
+export const GET: APIRoute = (ctx) =>
+  withAuth(getAuth(), async ({ request }) => {
+    const statusParam = new URL(request.url).searchParams.get('status');
+    const status = statusParam && isPostStatus(statusParam) ? statusParam : undefined;
 
-  const posts = await getPostService().list(status ? { status } : undefined);
-  return new Response(JSON.stringify({ posts }), {
-    headers: { 'content-type': 'application/json' },
-  });
-});
+    const posts = await getSandboxedPostService(ctx.locals, ctx.cookies).list(status ? { status } : undefined);
+    return json({ posts });
+  })(ctx);
 
-export const POST: APIRoute = withAuth(getAuth(), async ({ request }) => {
-  const input = await request.json();
-  const result = await getPostService().create(input);
+export const POST: APIRoute = (ctx) =>
+  withAuth(getAuth(), async ({ request }) => {
+    const input = await request.json();
+    const result = await getSandboxedPostService(ctx.locals, ctx.cookies).create(input);
 
-  if (!result.ok) {
-    return new Response(JSON.stringify({ errors: result.errors }), {
-      status: 422,
-      headers: { 'content-type': 'application/json' },
-    });
-  }
-
-  return new Response(JSON.stringify({ post: result.data }), {
-    status: 201,
-    headers: { 'content-type': 'application/json' },
-  });
-});
+    if (!result.ok) return json({ errors: result.errors }, 422);
+    return json({ post: result.data }, 201);
+  })(ctx);

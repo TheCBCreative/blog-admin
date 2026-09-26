@@ -5,9 +5,12 @@ import { withBase } from '../lib/base-path';
 interface Props {
   title: string;
   active?: 'dashboard' | 'posts' | 'media';
+  /** Lets the content area use the full window width (e.g. the media grid). */
+  wide?: boolean;
 }
-const { title, active } = Astro.props;
+const { title, active, wide = false } = Astro.props;
 const isActive = (name: string) => (active === name ? 'active' : '');
+const signOutHref = withBase('/api/auth/sign-out');
 ---
 <!doctype html>
 <html lang="en">
@@ -35,14 +38,14 @@ const isActive = (name: string) => (active === name ? 'active' : '');
         </nav>
         <div class="demo-note">
           Seeded demo — no real client data.<br />
-          <a href={withBase('/api/auth/sign-out')} id="sign-out-link" style="color:#aab; text-decoration:underline;">Sign out</a>
+          <a href={signOutHref} id="sign-out-link" style="color:#aab; text-decoration:underline;">Sign out</a>
         </div>
       </aside>
-      <main class="main">
+      <main class={`main${wide ? ' main-wide' : ''}`}>
         <slot />
       </main>
     </div>
-    <script define:vars={{ signOutHref: withBase('/api/auth/sign-out'), loginHref: withBase('/admin/login') }}>
+    <script define:vars={{ signOutHref, loginHref: withBase('/admin/login') }}>
       document.getElementById('sign-out-link')?.addEventListener('click', async (e) => {
         e.preventDefault();
         await fetch(signOutHref, { method: 'POST' });

@@ -1,35 +1,34 @@
 import type { APIRoute } from 'astro';
 import { withAuth } from '@thecbcreative/blog-admin/auth';
 import { getAuth } from '../../../../lib/auth';
-import { getPostService } from '../../../../lib/store';
+import { json } from '../../../../lib/http';
+import { getSandboxedPostService } from '../../../../lib/sandbox-store';
 
 export const prerender = false;
 
-export const GET: APIRoute = withAuth(getAuth(), async ({ request }) => {
-  const id = new URL(request.url).pathname.split('/').pop()!;
-  const post = await getPostService().get(id);
-  if (!post) return new Response(JSON.stringify({ error: 'Not found' }), { status: 404 });
-  return new Response(JSON.stringify({ post }), { headers: { 'content-type': 'application/json' } });
-});
+// Every handler is scoped to the visitor's sandbox (lib/sandbox.ts): editing a
+// placeholder saves a private copy and deleting one only hides it.
 
-export const PATCH: APIRoute = withAuth(getAuth(), async ({ request }) => {
-  const id = new URL(request.url).pathname.split('/').pop()!;
-  const input = await request.json();
-  const result = await getPostService().update(id, input);
+const postId = (request: Request) => new URL(request.url).pathname.split('/').pop()!;
 
-  if (!result.ok) {
-    return new Response(JSON.stringify({ errors: result.errors }), {
-      status: 422,
-      headers: { 'content-type': 'application/json' },
-    });
-  }
-  return new Response(JSON.stringify({ post: result.data }), {
-    headers: { 'content-type': 'application/json' },
-  });
-});
+export const GET: APIRoute = (ctx) =>
+  withAuth(getAuth(), async ({ request }) => {
+    const post = await getSandboxedPostService(ctx.locals, ctx.cookies).get(postId(request));
+    if (!post) return json({ error: 'Not found' }, 404);
+    return json({ post });
+  })(ctx);
 
-export const DELETE: APIRoute = withAuth(getAuth(), async ({ request }) => {
-  const id = new URL(request.url).pathname.split('/').pop()!;
-  await getPostService().delete(id);
-  return new Response(null, { status: 204 });
-});
+export const PATCH: APIRoute = (ctx) =>
+  withAuth(getAuth(), async ({ request }) => {
+    const input = await request.json();
+    const result = await getSandboxedPostService(ctx.locals, ctx.cookies).update(postId(request), input);
+
+    if (!result.ok) return json({ errors: result.errors }, 422);
+    return json({ post: result.data });
+  })(ctx);
+
+export const DELETE: APIRoute = (ctx) =>
+  withAuth(getAuth(), async ({ request }) => {
+    await getSandboxedPostService(ctx.locals, ctx.cookies).delete(postId(request));
+    return new Response(null, { status: 204 });
+  })(ctx);

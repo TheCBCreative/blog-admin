@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   serializePostForm,
   suggestPostFields,
@@ -6,8 +6,9 @@ import {
   type PostFormMode,
   type PostFormValues,
 } from '@thecbcreative/blog-admin/client';
-import { SEED_TAG } from '../lib/demo-cleanup';
 import { withBase } from '../lib/base-path';
+import { DEMO_MEDIA, findDemoMedia } from '../lib/demo-media';
+import { listUploads, type BrowserUpload } from '../lib/browser-media';
 import RichTextEditor from './RichTextEditor';
 
 interface ExistingPost {
@@ -30,12 +31,8 @@ interface Props {
   mode: 'create' | 'edit';
   post?: ExistingPost;
   layouts: string[];
-  /**
-   * True for a seeded placeholder post. Re-appends the internal seed marker
-   * tag on every save, so a placeholder stays exempt from demo cleanup even
-   * after being edited — the marker itself is never shown in the tags field.
-   */
-  isSeed?: boolean;
+  /** The visitor's sandbox — lets the image picker offer their own uploads. */
+  sandboxId?: string;
 }
 
 interface FieldError {
@@ -50,7 +47,7 @@ function toLocalInputValue(iso?: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export default function PostComposer({ mode, post, layouts, isSeed = false }: Props) {
+export default function PostComposer({ mode, post, layouts, sandboxId }: Props) {
   const [headline, setHeadline] = useState(post?.headline ?? '');
   const [subheadline, setSubheadline] = useState(post?.subheadline ?? '');
   const [slug, setSlug] = useState(post?.slug ?? '');
@@ -62,6 +59,7 @@ export default function PostComposer({ mode, post, layouts, isSeed = false }: Pr
   const [seoDescription, setSeoDescription] = useState(post?.seoDescription ?? '');
   const [imageUrl, setImageUrl] = useState(post?.featuredImage?.url ?? '');
   const [imageAlt, setImageAlt] = useState(post?.featuredImage?.alt ?? '');
+  const [uploads, setUploads] = useState<BrowserUpload[]>([]);
   const [publishAt, setPublishAt] = useState(toLocalInputValue(post?.publishAt));
 
   const [saving, setSaving] = useState<PostFormMode | null>(null);
@@ -69,6 +67,16 @@ export default function PostComposer({ mode, post, layouts, isSeed = false }: Pr
   const [deleting, setDeleting] = useState(false);
   const [errors, setErrors] = useState<FieldError[]>([]);
   const [savedNote, setSavedNote] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!sandboxId) return;
+    listUploads(sandboxId).then(setUploads).catch(() => setUploads([]));
+  }, [sandboxId]);
+
+  // An upload is stored as a data URL — show its name instead of the raw data.
+  const uploadName = imageUrl.startsWith('data:')
+    ? (uploads.find((u) => u.dataUrl === imageUrl)?.name ?? 'your upload')
+    : null;
 
   const errorFor = (field: string) => errors.find((e) => e.field === field)?.message;
 
@@ -80,11 +88,7 @@ export default function PostComposer({ mode, post, layouts, isSeed = false }: Pr
     if (!slug) setSlug(suggestSlug(headline));
   }
 
-  async function save(formMode: PostFormMode) {
-    setSaving(formMode);
-    setErrors([]);
-    setSavedNote(null);
-
+  function serializedFields(formMode: PostFormMode) {
     const values: PostFormValues = {
       headline,
       subheadline,
@@ -98,118 +102,98 @@ export default function PostComposer({ mode, post, layouts, isSeed = false }: Pr
       mode: formMode,
       publishAt,
     };
+    return serializePostForm(values);
+  }
 
-    const serialized = serializePostForm(values);
-    const payload = {
-      ...serialized,
-      // Re-tag on every save so editing a placeholder never loses its
-      // cleanup exemption.
-      tags: isSeed ? [...serialized.tags, SEED_TAG] : serialized.tags,
-      featuredImage: imageUrl ? { url: imageUrl, alt: imageAlt } : undefined,
-    };
-
-    const url = withBase(mode === 'edit' ? `/api/admin/posts/${post!.id}` : '/api/admin/posts');
-    const method = mode === 'edit' ? 'PATCH' : 'POST';
-
-    const res = await fetch(url, {
+  function sendPost(path: string, method: 'POST' | 'PATCH', fields: object) {
+    const featuredImage = imageUrl ? { url: imageUrl, alt: imageAlt } : undefined;
+    return fetch(withBase(path), {
       method,
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...fields, featuredImage }),
     });
+  }
 
-    setSaving(null);
-
+  /** Returns the saved post's id, or null after showing the response's errors. */
+  async function readSavedId(res: Response, failMessage: string): Promise<string | null> {
     if (res.status === 422) {
-      const data = await res.json();
-      setErrors(data.errors ?? []);
-      return;
+      setErrors((await res.json()).errors ?? []);
+      return null;
     }
     if (!res.ok) {
-      setErrors([{ field: 'form', message: 'Something went wrong saving this post.' }]);
-      return;
+      setErrors([{ field: 'form', message: failMessage }]);
+      return null;
     }
+    return (await res.json()).post.id;
+  }
 
-    const data = await res.json();
+  async function save(formMode: PostFormMode) {
+    setSaving(formMode);
+    setErrors([]);
+    setSavedNote(null);
+
+    const res = await sendPost(
+      mode === 'edit' ? `/api/admin/posts/${post!.id}` : '/api/admin/posts',
+      mode === 'edit' ? 'PATCH' : 'POST',
+      serializedFields(formMode),
+    );
+    setSaving(null);
+
+    const savedId = await readSavedId(res, 'Something went wrong saving this post.');
+    if (savedId === null) return;
+
     if (formMode === 'publish') {
       // Land on the dashboard so the new status and counts are visible.
-      window.location.href = withBase(`/admin?published=${encodeURIComponent(data.post.id)}`);
-    } else if (mode === 'create') {
-      window.location.href = withBase(`/admin/posts/${data.post.id}/edit`);
+      window.location.href = withBase(`/admin?published=${encodeURIComponent(savedId)}`);
+    } else if (mode === 'create' || savedId !== post!.id) {
+      // A different id back from an edit means this was a placeholder and the
+      // server saved it as the visitor's own copy — continue editing that.
+      window.location.href = withBase(`/admin/posts/${savedId}/edit`);
     } else {
       setSavedNote('Saved.');
     }
   }
 
   async function preview() {
-    // window.open has to happen synchronously in the click handler, before any
-    // await — otherwise most browsers treat the later call as not user-
-    // initiated and silently block the popup. Open a blank tab now, point it
-    // at the real URL once we know it (or have saved a new post to get one).
+    // Open the tab before any await: browsers block a window.open that isn't
+    // synchronous with the click. It's pointed at the preview once saved.
     const tab = window.open('about:blank', '_blank');
 
     setPreviewing(true);
     setErrors([]);
     setSavedNote(null);
 
-    const values: PostFormValues = {
-      headline, subheadline, slug, excerpt, body, layout,
-      seoTitle, seoDescription, tags, publishAt,
-      mode: 'draft', // only relevant for a brand-new post; see below
-    };
-    const featuredImage = imageUrl ? { url: imageUrl, alt: imageAlt } : undefined;
-
     if (mode === 'edit') {
-      // Save the current edits so the preview reflects them, but never touch
-      // status/publishAt — previewing a live or scheduled post must not
-      // silently revert it to draft.
-      const { status: _status, publishAt: _publishAt, ...fields } = serializePostForm(values);
-      const tags = isSeed ? [...fields.tags, SEED_TAG] : fields.tags;
-      const res = await fetch(withBase(`/api/admin/posts/${post!.id}`), {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ ...fields, tags, featuredImage }),
-      });
+      // Leave out status/publishAt so previewing a live or scheduled post
+      // doesn't revert it to draft.
+      const { status: _status, publishAt: _publishAt, ...fields } = serializedFields('draft');
+      const res = await sendPost(`/api/admin/posts/${post!.id}`, 'PATCH', fields);
       setPreviewing(false);
+      if (!res.ok) tab?.close();
 
-      if (res.status === 422) {
-        tab?.close();
-        setErrors((await res.json()).errors ?? []);
-        return;
-      }
-      if (!res.ok) {
-        tab?.close();
-        setErrors([{ field: 'form', message: 'Could not save changes before previewing.' }]);
+      const savedId = await readSavedId(res, 'Could not save changes before previewing.');
+      if (savedId === null) return;
+
+      if (tab) tab.location.href = withBase(`/admin/posts/${savedId}/preview`);
+      if (savedId !== post!.id) {
+        // Placeholder saved as the visitor's own copy — keep editing the copy.
+        window.location.href = withBase(`/admin/posts/${savedId}/edit`);
         return;
       }
       setSavedNote('Saved and opened preview.');
-      if (tab) tab.location.href = withBase(`/admin/posts/${post!.id}/preview`);
       return;
     }
 
-    // Creating: there's no row to preview yet, so save this as a draft first
-    // (same as clicking "Save Draft") and preview that.
-    const payload = { ...serializePostForm(values), featuredImage };
-    const res = await fetch(withBase('/api/admin/posts'), {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+    // A new post has nothing to preview yet, so save it as a draft first.
+    const res = await sendPost('/api/admin/posts', 'POST', serializedFields('draft'));
     setPreviewing(false);
+    if (!res.ok) tab?.close();
 
-    if (res.status === 422) {
-      tab?.close();
-      setErrors((await res.json()).errors ?? []);
-      return;
-    }
-    if (!res.ok) {
-      tab?.close();
-      setErrors([{ field: 'form', message: 'Could not save this draft before previewing.' }]);
-      return;
-    }
+    const savedId = await readSavedId(res, 'Could not save this draft before previewing.');
+    if (savedId === null) return;
 
-    const data = await res.json();
-    if (tab) tab.location.href = withBase(`/admin/posts/${data.post.id}/preview`);
-    window.location.href = withBase(`/admin/posts/${data.post.id}/edit`);
+    if (tab) tab.location.href = withBase(`/admin/posts/${savedId}/preview`);
+    window.location.href = withBase(`/admin/posts/${savedId}/edit`);
   }
 
   async function remove() {
@@ -229,6 +213,15 @@ export default function PostComposer({ mode, post, layouts, isSeed = false }: Pr
 
   const busy = saving !== null || previewing || deleting;
   const formError = errorFor('form');
+
+  // Picking a sample photo fills in its alt text, unless the author has typed their own.
+  function chooseImageUrl(url: string) {
+    setImageUrl(url);
+    const match = findDemoMedia(url);
+    if (match && (!imageAlt.trim() || DEMO_MEDIA.some((m) => m.alt === imageAlt))) {
+      setImageAlt(match.alt);
+    }
+  }
 
   return (
     <div className="form-grid">
@@ -303,7 +296,46 @@ export default function PostComposer({ mode, post, layouts, isSeed = false }: Pr
         <div className="card" style={{ marginBottom: 16 }}>
           <div className={`field ${errorFor('featuredImage.alt') ? 'error' : ''}`} style={{ marginBottom: 12 }}>
             <label htmlFor="imageUrl">Featured image URL</label>
-            <input id="imageUrl" type="text" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="/uploads/… or paste a URL" />
+            {uploadName ? (
+              <div className="upload-chip">
+                <span>Your upload: {uploadName}</span>
+                <button type="button" className="btn-ghost btn" onClick={() => chooseImageUrl('')}>
+                  Clear
+                </button>
+              </div>
+            ) : (
+              <input id="imageUrl" type="text" value={imageUrl} onChange={(e) => chooseImageUrl(e.target.value)} placeholder="Paste an image URL, or pick one below" />
+            )}
+            <div className="photo-picker" role="group" aria-label="Your uploads and sample photos">
+              {uploads.map((u) => (
+                <button
+                  type="button"
+                  key={u.id}
+                  className={`photo-picker-item ${imageUrl === u.dataUrl ? 'selected' : ''}`}
+                  onClick={() => chooseImageUrl(u.dataUrl)}
+                  aria-pressed={imageUrl === u.dataUrl}
+                  title={`Your upload: ${u.name}`}
+                >
+                  <img src={u.dataUrl} alt={`Your upload: ${u.name}`} loading="lazy" />
+                </button>
+              ))}
+              {DEMO_MEDIA.map((m) => {
+                const url = withBase(m.url);
+                return (
+                  <button
+                    type="button"
+                    key={m.url}
+                    className={`photo-picker-item ${imageUrl === url ? 'selected' : ''}`}
+                    onClick={() => chooseImageUrl(url)}
+                    aria-pressed={imageUrl === url}
+                    title={m.alt}
+                  >
+                    <img src={url} alt={m.alt} loading="lazy" />
+                  </button>
+                );
+              })}
+            </div>
+            <div className="hint">Pick one of your uploads or a sample photo (samples fill in their alt text), or paste a URL.</div>
           </div>
           <div className="field" style={{ marginBottom: 0 }}>
             <label htmlFor="imageAlt">Alt text</label>
@@ -312,7 +344,7 @@ export default function PostComposer({ mode, post, layouts, isSeed = false }: Pr
             {errorFor('featuredImage.alt') && <div className="error-msg">{errorFor('featuredImage.alt')}</div>}
           </div>
           <div className="hint" style={{ marginTop: 10 }}>
-            Grab a URL from the <a href={withBase('/admin/media')}>Media Library</a>.
+            Upload your own images in the <a href={withBase('/admin/media')}>Media Library</a> — they show up above.
           </div>
         </div>
 

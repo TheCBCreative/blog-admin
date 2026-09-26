@@ -3,21 +3,16 @@ import { createBlogAuth, type BlogAuth } from '@thecbcreative/blog-admin/auth';
 let _auth: BlogAuth | undefined;
 
 /**
- * Singleton Better Auth instance for the demo.
- *
- * Sign-up stays closed (the package default) — the demo account is created
- * once by scripts/seed-demo.ts, exactly like a real client site's admin.
+ * Singleton Better Auth instance for the demo. Sign-up stays closed; the demo
+ * account is created by scripts/seed-demo.ts.
  */
 export function getAuth(): BlogAuth {
   if (_auth) return _auth;
 
   const databaseUrl = process.env.DATABASE_URL;
-  // BETTER_AUTH_URL is the public URL, which includes the portfolio's
-  // /work/blog-composer/demo prefix. Better Auth treats any path in baseURL as
-  // its own route root, so it would only answer at /work/blog-composer/demo/*.
-  // The portfolio proxy strips that prefix before requests reach this app, so
-  // auth routes actually arrive at /api/auth/*. Passing only the origin makes
-  // Better Auth fall back to its default /api/auth base path, which matches.
+  // BETTER_AUTH_URL includes the portfolio's subpath, but the proxy strips it
+  // before requests arrive, and Better Auth would treat that path as its route
+  // root. Passing only the origin keeps it on the default /api/auth.
   const publicUrl = process.env.BETTER_AUTH_URL ?? 'http://localhost:4321';
   const baseUrl = new URL(publicUrl).origin;
   const secret = process.env.BETTER_AUTH_SECRET;
@@ -29,9 +24,7 @@ export function getAuth(): BlogAuth {
     databaseUrl,
     baseUrl,
     secret,
-    // A public demo gets hit by more retries than a real single-admin site
-    // (people testing the rate limit itself), so this stays on rather than
-    // being disabled for convenience.
+    // Kept on: a public demo sees far more login attempts than a real admin.
     disableRateLimit: false,
   });
 

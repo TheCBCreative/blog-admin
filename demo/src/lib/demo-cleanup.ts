@@ -1,44 +1,37 @@
 /**
  * Visitor content cleanup for the public demo.
  *
- * Anyone who opens the demo can sign in and create posts, so the demo needs a
- * way to age those out automatically without ever touching the seeded
- * placeholder posts (`npm run db:seed`) that the portfolio site is meant to
- * always show.
- *
- * No schema change: seeded posts are marked by adding `SEED_TAG` to the
- * existing `tags` field, so this works unmodified against both the Neon
- * adapter and the local-Postgres dev adapter, and against whatever
- * `PostService` a given deployment happens to be wired to.
+ * Anyone can sign in and create posts, so visitor posts age out automatically
+ * while the seeded placeholders (`npm run db:seed`) are never touched. Seeded
+ * posts are marked with `SEED_TAG` in the existing `tags` field, so this needs
+ * no schema change and works against any PostService.
  */
 import type { PostService } from '@thecbcreative/blog-admin/service';
 
 /**
- * Internal marker tag. Stripped from every UI surface — never shown to a
- * user. Has to be a valid tag by the package's own rules (lowercase
- * alphanumeric with single internal hyphens — see core/slug.ts's
- * isValidSlug, which validatePost enforces on every save) or saving a
- * placeholder post back through the normal edit flow would fail validation.
+ * Internal marker for seeded placeholders, hidden from every UI surface. It
+ * must be a valid tag by the package's slug rules, or saving a placeholder
+ * through the normal edit flow would fail validation.
  */
 export const SEED_TAG = 'demo-seed-placeholder';
+
+/** Prefix shared by every internal tag (the seed tag and the sandbox tags in sandbox.ts). */
+const INTERNAL_PREFIX = 'demo-';
+
+export const isInternalTag = (tag: string): boolean => tag.startsWith(INTERNAL_PREFIX);
 
 export function isSeedPost(tags: readonly string[]): boolean {
   return tags.includes(SEED_TAG);
 }
 
-/** Tags minus the internal marker, for anything that displays or edits tags. */
+/** Tags minus every internal marker, for anything that displays or edits tags. */
 export function visibleTags(tags: readonly string[]): string[] {
-  return tags.filter((tag) => tag !== SEED_TAG);
+  return tags.filter((tag) => !isInternalTag(tag));
 }
 
 const DEFAULT_MAX_AGE_HOURS = 2;
 
-/**
- * How long a visitor-created post is kept before cleanup deletes it.
- * Configurable via DEMO_POST_MAX_AGE_HOURS so this can be tuned per
- * deployment without a code change; falls back to a sane default if unset
- * or invalid.
- */
+/** How long a visitor-created post is kept; set with DEMO_POST_MAX_AGE_HOURS. */
 export function demoPostMaxAgeMs(): number {
   const raw = Number(process.env.DEMO_POST_MAX_AGE_HOURS);
   const hours = Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_MAX_AGE_HOURS;
@@ -46,16 +39,10 @@ export function demoPostMaxAgeMs(): number {
 }
 
 /**
- * Deletes visitor-created posts older than the retention window. Seeded
- * placeholders are never touched, whatever their age.
- *
- * Deliberately built on nothing but the public PostService interface
- * (list + delete) — no direct adapter/SQL access — so it works the same way
- * regardless of which PostStore is behind it.
- *
- * Best-effort by design: callers (middleware, the cron route) should swallow
- * any error this throws rather than let a cleanup hiccup break a real
- * request.
+ * Deletes visitor-created posts older than the retention window; seeded
+ * placeholders are kept whatever their age. Uses only the public PostService
+ * interface so it works with any PostStore. Callers should swallow errors so a
+ * failed cleanup never breaks a real request.
  */
 export async function cleanupExpiredDemoPosts(
   service: Pick<PostService, 'list' | 'delete'>,
@@ -63,8 +50,7 @@ export async function cleanupExpiredDemoPosts(
 ): Promise<number> {
   const cutoff = now.getTime() - demoPostMaxAgeMs();
 
-  // The demo is meant to stay small; a single bounded page is enough to
-  // catch everything without a full unbounded scan on every request.
+  // The demo stays small, so one bounded page covers every post.
   const posts = await service.list({ limit: 200 });
   const expired = posts.filter((post) => !isSeedPost(post.tags) && post.createdAt.getTime() < cutoff);
 

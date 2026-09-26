@@ -31,9 +31,18 @@ If you'd rather not create a Neon project just to develop locally, see [`LOCAL_D
 
 ## What's real vs. what's a demo shortcut
 
-- **Real**: the database schema, the auth flow (real password hashing, real sessions, real cookies), all the validation and status-derivation logic in the core package, the React components, the API routes.
-- **Demo shortcut**: sign-up is disabled everywhere except the one-time seed script (`allowSignUp: true` only there) — this is a single-admin demo, not a multi-tenant app. Media uploads are written to local disk (`public/uploads/`) rather than object storage — see [`DEMO_DEPLOY.md`](./DEMO_DEPLOY.md) for why that matters if you deploy this.
+- **Real**: the database schema, the auth flow (password hashing, sessions, cookies), all the validation and status logic from the core package, the React components and the API routes.
+- **Demo shortcuts**:
+  - Sign-up is disabled everywhere except the one-time seed script — this is a single-admin demo.
+  - Every visitor signs in as the same account, so each browser gets a private sandbox that resets after a couple of hours (see [`DEMO_DEPLOY.md`](./DEMO_DEPLOY.md#visitor-sandboxes)).
+  - Uploaded images stay in the visitor's browser rather than object storage.
+
+## Tests
+
+```bash
+npm test   # the visitor sandbox logic
+```
 
 ## Deploying
 
-See [`DEMO_DEPLOY.md`](./DEMO_DEPLOY.md) for exact Vercel + Neon deployment steps, required environment variables, and the media-upload caveat above.
+See [`DEMO_DEPLOY.md`](./DEMO_DEPLOY.md) for Vercel + Neon deployment steps and the required environment variables.

@@ -1,20 +1,21 @@
 ---
 import '../../../../styles/admin.css';
 import { displayStatus } from '@thecbcreative/blog-admin';
-import { getPostService } from '../../../../lib/store';
+import { getSandboxedPostService } from '../../../../lib/sandbox-store';
 import { visibleTags } from '../../../../lib/demo-cleanup';
 import { withBase } from '../../../../lib/base-path';
 
 export const prerender = false;
 
 const { id } = Astro.params;
-const post = await getPostService().get(id!);
+const post = await getSandboxedPostService(Astro.locals, Astro.cookies).get(id!);
 
 if (!post) {
   return Astro.redirect(withBase('/admin/posts'));
 }
 
 const status = displayStatus(post);
+const tags = visibleTags(post.tags);
 
 const STATUS_COPY: Record<string, string> = {
   draft: 'Draft — not visible to anyone but you.',
@@ -56,9 +57,9 @@ const publishedDate = (post.publishedAt ?? post.createdAt).toLocaleDateString('e
       )}
 
       <div class="preview-content">
-        {visibleTags(post.tags).length > 0 && (
+        {tags.length > 0 && (
           <div class="preview-tags">
-            {visibleTags(post.tags).map((tag) => <span class="badge badge-draft">{tag}</span>)}
+            {tags.map((tag) => <span class="badge badge-draft">{tag}</span>)}
           </div>
         )}
 

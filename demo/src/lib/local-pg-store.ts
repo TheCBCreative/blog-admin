@@ -1,18 +1,8 @@
 /**
- * Local-Postgres PostStore — a development convenience, not what ships to
- * production.
- *
- * The package's real adapter (`@thecbcreative/blog-admin/adapters/neon`)
- * talks to Neon over its HTTP query endpoint, which only exists for a real
- * Neon project. This adapter implements the identical `PostStore` interface
- * against a plain Postgres connection instead, so the app can be run against
- * any local or self-hosted Postgres during development without needing a
- * Neon account at all.
- *
- * Same schema, same status/visibility rules as the real adapter (mirrors
- * `adapters/neon/index.ts`) — just parameterized queries instead of a
- * tagged-template HTTP call. Selected by `getPostStore()` in `store.ts` only
- * when `LOCAL_PG=true`; the deployed demo always uses the real adapter.
+ * Local-development PostStore over a plain Postgres connection, for running
+ * without a Neon project (whose HTTP query endpoint the real adapter needs).
+ * Mirrors `adapters/neon/index.ts`: same schema and status/visibility rules.
+ * Used only when LOCAL_PG=true.
  */
 import { Pool } from '@neondatabase/serverless';
 import type { NewPost, Post, PostPatch, PostStatus } from '@thecbcreative/blog-admin';
@@ -80,6 +70,10 @@ function rowToPost(row: PostRow): Post {
   };
 }
 
+/** A status filter as a text[] query parameter, or null for "any status". */
+const statusArray = (status: ListOptions['status']): PostStatus[] | null =>
+  status ? (Array.isArray(status) ? status : [status]) : null;
+
 const UNIQUE_VIOLATION = '23505';
 const isUniqueViolation = (err: unknown): boolean =>
   typeof err === 'object' && err !== null && (err as { code?: string }).code === UNIQUE_VIOLATION;
@@ -89,7 +83,7 @@ export function createLocalPgPostStore(databaseUrl: string): PostStore {
 
   return {
     async list(opts: ListOptions = {}): Promise<Post[]> {
-      const statuses = opts.status ? (Array.isArray(opts.status) ? opts.status : [opts.status]) : null;
+      const statuses = statusArray(opts.status);
       const limit = opts.limit ?? 100;
       const offset = opts.offset ?? 0;
       const order = opts.order === 'oldest' ? 'ASC' : 'DESC';
@@ -118,7 +112,7 @@ export function createLocalPgPostStore(databaseUrl: string): PostStore {
     },
 
     async count(opts = {}): Promise<number> {
-      const statuses = opts.status ? (Array.isArray(opts.status) ? opts.status : [opts.status]) : null;
+      const statuses = statusArray(opts.status);
       const { rows } = await pool.query(
         `SELECT COUNT(*)::int AS n FROM posts WHERE ($1::text[] IS NULL OR status = ANY($1::text[]))`,
         [statuses],

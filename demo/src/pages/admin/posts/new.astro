@@ -16,5 +16,5 @@ export const prerender = false;
     <a class="btn btn-ghost" href={withBase('/admin/posts')}>← Back to posts</a>
   </div>
 
-  <PostComposer client:load mode="create" layouts={[...DEMO_LAYOUTS]} />
+  <PostComposer client:load mode="create" layouts={[...DEMO_LAYOUTS]} sandboxId={Astro.locals.sandbox?.id} />
 </AdminLayout>

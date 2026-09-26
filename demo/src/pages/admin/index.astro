@@ -1,13 +1,13 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import DashboardStats from '../../components/DashboardStats.tsx';
-import { getPostService } from '../../lib/store';
+import { getSandboxedPostService } from '../../lib/sandbox-store';
 import { displayStatus } from '@thecbcreative/blog-admin/core';
 import { withBase } from '../../lib/base-path';
 
 export const prerender = false;
 
-const service = getPostService();
+const service = getSandboxedPostService(Astro.locals, Astro.cookies);
 const [draft, scheduled, published, archived, recent] = await Promise.all([
   service.count('draft'),
   service.count('scheduled'),
@@ -16,8 +16,8 @@ const [draft, scheduled, published, archived, recent] = await Promise.all([
   service.list({ limit: 6 }),
 ]);
 
-// Set by PostComposer after a successful publish. Looked up rather than
-// trusting a headline from the URL.
+// Set by PostComposer after a publish; the headline is looked up rather than
+// trusted from the URL.
 const publishedId = Astro.url.searchParams.get('published');
 const justPublished = publishedId ? await service.get(publishedId) : null;
 const justDeleted = Astro.url.searchParams.has('deleted');

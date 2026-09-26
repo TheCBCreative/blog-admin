@@ -8,10 +8,8 @@ let _store: PostStore | undefined;
 let _service: PostService | undefined;
 
 /**
- * The real adapter by default — Neon's HTTP query endpoint, exactly what a
- * deployed client site uses. Set LOCAL_PG=true to swap in a plain-Postgres
- * adapter for local development against a non-Neon database (see
- * LOCAL_DEV.md); the deployed demo never sets that flag.
+ * The Neon adapter a deployed client site uses, or, with LOCAL_PG=true, a
+ * plain-Postgres adapter for local development (see LOCAL_DEV.md).
  */
 export function getPostStore(): PostStore {
   if (_store) return _store;
@@ -34,9 +32,8 @@ export function getPostService(): PostService {
   _service = createPostService(getPostStore(), {
     defaultAuthorName: 'Demo Author',
     layouts: DEMO_LAYOUTS,
-    // Sanitizes on save; preview.astro and the (future) public post template
-    // should sanitize again on render — belt and braces, since a row could
-    // in principle be written by something other than this service.
+    // Sanitizes on save. Render-side code should sanitize again, since a row
+    // could be written by something other than this service.
     sanitizeHtml: createSanitizer(),
   });
   return _service;

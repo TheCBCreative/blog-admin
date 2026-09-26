@@ -1,21 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 
 /**
- * Tiptap rich-text editor for the post body.
+ * Tiptap rich-text editor for the post body. Tiptap is loaded from a pinned
+ * CDN version rather than bundled, keeping it out of the demo's dependencies.
  *
- * Ported from the same component on the Alpenglow site (Astro + vanilla JS
- * there; this is the React version, since the demo's PostComposer is a React
- * island rather than an Astro page). Same approach: Tiptap loaded from a CDN
- * as an ES module rather than bundled, so the demo doesn't pull it into its
- * dependency tree for a handful of admin-only screens; pinned versions, since
- * an unpinned CDN import means a dependency changing under you with no commit
- * and no warning.
- *
- * The toolbar is deliberately a subset of what Tiptap can do — only the marks
- * the package's sanitizer (ALLOWED_TAGS in core/sanitize.ts) actually keeps.
- * Adding a button here without adding the tag there means the formatting
- * silently disappears on save, which is the safe failure direction but a
- * confusing one, so the two have to be kept in sync by hand.
+ * The toolbar only offers what the sanitizer keeps (ALLOWED_TAGS in
+ * core/sanitize.ts); keep the two in sync or formatting vanishes on save.
  */
 
 const CDN = 'https://esm.sh';
@@ -43,10 +33,8 @@ const TOOLBAR: Array<{ action: Action; label: string; title?: string }> = [
 ];
 
 /**
- * Mirrors normalizeLinkHref() in the package (src/core/link.ts). The
- * sanitizer applies the same rule server-side and is authoritative — this
- * just means the author sees the corrected href immediately instead of
- * after saving.
+ * Mirrors normalizeLinkHref() in src/core/link.ts so the author sees the
+ * corrected href immediately; the server-side sanitizer is authoritative.
  */
 function normalizeHref(raw: string): string {
   const trimmed = raw.trim();
@@ -57,14 +45,24 @@ function normalizeHref(raw: string): string {
   return trimmed;
 }
 
+function promptForLink(editor: any) {
+  const previous = editor.getAttributes('link').href ?? '';
+  const url = window.prompt('Link to (a full address, or /page for this site):', previous);
+  if (url === null) return;
+  if (url.trim() === '') {
+    editor.chain().focus().unsetLink().run();
+    return;
+  }
+  editor.chain().focus().setLink({ href: normalizeHref(url) }).run();
+}
+
 export default function RichTextEditor({ id, value, onChange, onBlur }: Props) {
   const surfaceRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<any>(null);
   const onChangeRef = useRef(onChange);
   const onBlurRef = useRef(onBlur);
-  // Tiptap owns the document after init; re-feeding `value` back in on every
-  // keystroke would fight the user's cursor. Only the first render's value
-  // is used as initial content.
+  // Tiptap owns the document after init; feeding `value` back in on every
+  // keystroke would fight the cursor, so only the initial value is used.
   const initialValueRef = useRef(value);
 
   const [status, setStatus] = useState('Loading editor…');
@@ -87,22 +85,9 @@ export default function RichTextEditor({ id, value, onChange, onBlur }: Props) {
         ]);
         if (cancelled || !surfaceRef.current) return;
 
-        // Tiptap appends its own editable element inside `element` rather than
-        // taking it over, so the pre-rendered fallback HTML has to go first —
-        // otherwise the body shows twice (fallback copy, then the live editor).
+        // Tiptap appends its editable element rather than replacing the
+        // contents, so clear the fallback HTML or the body shows twice.
         surfaceRef.current.innerHTML = '';
-
-        const promptForLink = () => {
-          const editor = editorRef.current;
-          const previous = editor.getAttributes('link').href ?? '';
-          const url = window.prompt('Link to (a full address, or /page for this site):', previous);
-          if (url === null) return;
-          if (url.trim() === '') {
-            editor.chain().focus().unsetLink().run();
-            return;
-          }
-          editor.chain().focus().setLink({ href: normalizeHref(url) }).run();
-        };
 
         const editor = new Editor({
           element: surfaceRef.current,
@@ -111,7 +96,7 @@ export default function RichTextEditor({ id, value, onChange, onBlur }: Props) {
             handleKeyDown(_view: unknown, event: KeyboardEvent) {
               if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
                 event.preventDefault();
-                promptForLink();
+                promptForLink(editorRef.current);
                 return true;
               }
               return false;
@@ -119,9 +104,7 @@ export default function RichTextEditor({ id, value, onChange, onBlur }: Props) {
           },
           extensions: [
             StarterKit.configure({
-              // h1 belongs to the post headline; images go through the media
-              // store for alt text — both excluded here to match what the
-              // sanitizer actually keeps.
+              // No h1: that's the post headline.
               heading: { levels: [2, 3, 4] },
             }),
             Link.configure({
@@ -163,8 +146,7 @@ export default function RichTextEditor({ id, value, onChange, onBlur }: Props) {
         console.error('Editor failed to load', error);
         setFailed(true);
         setStatus('The formatting editor could not load. Reload the page before editing — typing here will not save.');
-        // The pre-populated div is still visible; make explicit that typing
-        // into it won't do anything, rather than letting it look editable.
+        // The fallback HTML stays visible; don't let it look editable.
         surfaceRef.current?.setAttribute('contenteditable', 'false');
       }
     }
@@ -176,30 +158,22 @@ export default function RichTextEditor({ id, value, onChange, onBlur }: Props) {
       editorRef.current?.destroy();
       editorRef.current = null;
     };
-    // Intentionally mount once per component instance — see initialValueRef.
+    // Mount once per instance — see initialValueRef.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const chain = () => editorRef.current?.chain().focus();
   const ACTIONS: Record<Action, () => void> = {
-    bold: () => editorRef.current?.chain().focus().toggleBold().run(),
-    italic: () => editorRef.current?.chain().focus().toggleItalic().run(),
-    h2: () => editorRef.current?.chain().focus().toggleHeading({ level: 2 }).run(),
-    h3: () => editorRef.current?.chain().focus().toggleHeading({ level: 3 }).run(),
-    bulletList: () => editorRef.current?.chain().focus().toggleBulletList().run(),
-    orderedList: () => editorRef.current?.chain().focus().toggleOrderedList().run(),
-    blockquote: () => editorRef.current?.chain().focus().toggleBlockquote().run(),
-    unlink: () => editorRef.current?.chain().focus().unsetLink().run(),
+    bold: () => chain()?.toggleBold().run(),
+    italic: () => chain()?.toggleItalic().run(),
+    h2: () => chain()?.toggleHeading({ level: 2 }).run(),
+    h3: () => chain()?.toggleHeading({ level: 3 }).run(),
+    bulletList: () => chain()?.toggleBulletList().run(),
+    orderedList: () => chain()?.toggleOrderedList().run(),
+    blockquote: () => chain()?.toggleBlockquote().run(),
+    unlink: () => chain()?.unsetLink().run(),
     link: () => {
-      const editor = editorRef.current;
-      if (!editor) return;
-      const previous = editor.getAttributes('link').href ?? '';
-      const url = window.prompt('Link to (a full address, or /page for this site):', previous);
-      if (url === null) return;
-      if (url.trim() === '') {
-        editor.chain().focus().unsetLink().run();
-        return;
-      }
-      editor.chain().focus().setLink({ href: normalizeHref(url) }).run();
+      if (editorRef.current) promptForLink(editorRef.current);
     },
   };
 
@@ -220,8 +194,8 @@ export default function RichTextEditor({ id, value, onChange, onBlur }: Props) {
         ))}
       </div>
 
-      {/* Tiptap mounts here. Pre-populated so content is visible before the
-          editor initializes, and readable if the CDN fails. */}
+      {/* Tiptap mounts here. Pre-populated so content shows before init and
+          stays readable if the CDN fails. */}
       <div
         ref={surfaceRef}
         className={`editor-surface${ready ? ' is-ready' : ''}`}
