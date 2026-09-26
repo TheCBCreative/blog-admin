@@ -1,7 +1,6 @@
 /**
- * Browser-side helpers. Framework-agnostic by design — plain TS and `fetch`, no
- * DOM framework — so a consuming site supplies its own markup and styling while
- * the security-relevant behaviour stays in one place.
+ * Browser-side helpers: plain TS and `fetch`, no framework. Consuming sites
+ * supply their own markup while the security-relevant behaviour stays here.
  */
 
 export {
@@ -28,3 +27,14 @@ export {
   type SuggestedFields,
   type SuggestionSources,
 } from './post-form.js';
+
+export {
+  closedLightbox,
+  lightboxReducer,
+  lightboxKeyAction,
+  lightboxNeighbors,
+  type LightboxState,
+  type LightboxAction,
+  type LightboxKeyAction,
+  type LightboxOptions,
+} from './lightbox.js';
