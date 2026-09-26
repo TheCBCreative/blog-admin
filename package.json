@@ -1,6 +1,6 @@
 {
   "name": "@thecbcreative/blog-admin",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Self-hosted, themeable blog admin for client sites. Core logic shared; styling and extra fields per project.",
   "type": "module",
   "license": "UNLICENSED",
