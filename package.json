@@ -29,7 +29,12 @@
     "db:migrate": "node scripts/migrate.mjs",
     "db:seed-admin": "tsx scripts/seed-admin.ts",
     "db:migrate-auth": "tsx scripts/migrate-auth.ts",
-    "db:setup": "npm run db:migrate && npm run db:migrate-auth"
+    "db:setup": "npm run db:migrate && npm run db:migrate-auth",
+    "preversion": "npm run typecheck && npm test",
+    "release:patch": "npm version patch -m \"fix: release v%s\"",
+    "release:minor": "npm version minor -m \"feat: release v%s\"",
+    "release:major": "npm version major -m \"feat: release v%s with breaking changes\"",
+    "postversion": "git push --follow-tags"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
