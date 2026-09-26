@@ -1,14 +1,10 @@
-/**
- * Post validation.
- *
- * Runs server-side on save, not only in the form. Anything enforced only in the
- * UI isn't enforced — a direct POST bypasses it.
- */
+/** Post validation. Must run server-side on save; UI-only checks are bypassed by a direct POST. */
 
 import type { PostInput, PostStatus } from '../types.js';
 import { isValidSlug } from './slug.js';
 import { isPostStatus } from './status.js';
 import { parseLocalDateTime, DEFAULT_TIME_ZONE } from './datetime.js';
+import { EXCERPT_MAX, SEO_TITLE_MAX, SEO_DESCRIPTION_MAX } from './derive.js';
 
 export interface ValidationError {
   field: string;
@@ -25,17 +21,13 @@ export interface ValidateOptions {
 export const LIMITS = {
   headline: 200,
   subheadline: 250,
-  excerpt: 320,
-  /** Google truncates around here; the form shows a counter against it. */
-  seoTitle: 60,
-  seoDescription: 155,
+  excerpt: EXCERPT_MAX,
+  seoTitle: SEO_TITLE_MAX,
+  seoDescription: SEO_DESCRIPTION_MAX,
   alt: 250,
 } as const;
 
-/**
- * Returns every problem rather than throwing on the first, so the form can show
- * all of them at once instead of making the client resubmit repeatedly.
- */
+/** Returns every problem rather than throwing on the first, so the form can show them all. */
 export function validatePost(input: PostInput, opts: ValidateOptions = {}): ValidationError[] {
   const errors: ValidationError[] = [];
   const now = opts.now ?? new Date();
@@ -43,14 +35,12 @@ export function validatePost(input: PostInput, opts: ValidateOptions = {}): Vali
 
   const push = (field: string, message: string): void => void errors.push({ field, message });
 
-  // ── Headline ──
   if (!input.headline || input.headline.trim().length === 0) {
     push('headline', 'A headline is required.');
   } else if (input.headline.length > LIMITS.headline) {
     push('headline', `Headline must be ${LIMITS.headline} characters or fewer.`);
   }
 
-  // ── Length caps ──
   if (input.subheadline && input.subheadline.length > LIMITS.subheadline) {
     push('subheadline', `Subheadline must be ${LIMITS.subheadline} characters or fewer.`);
   }
@@ -64,12 +54,10 @@ export function validatePost(input: PostInput, opts: ValidateOptions = {}): Vali
     push('seoDescription', `Meta description should be ${LIMITS.seoDescription} characters or fewer.`);
   }
 
-  // ── Slug ──
   if (input.slug !== undefined && !isValidSlug(input.slug)) {
     push('slug', 'Slug may contain lowercase letters, numbers, and single hyphens only.');
   }
 
-  // ── Image: alt text is required whenever there's an image ──
   if (input.featuredImage?.url) {
     const alt = input.featuredImage.alt?.trim();
     if (!alt) {
@@ -79,7 +67,6 @@ export function validatePost(input: PostInput, opts: ValidateOptions = {}): Vali
     }
   }
 
-  // ── Status + scheduling ──
   if (input.status !== undefined && !isPostStatus(input.status)) {
     push('status', 'Unrecognized status.');
   }
@@ -98,14 +85,12 @@ export function validatePost(input: PostInput, opts: ValidateOptions = {}): Vali
     }
   }
 
-  // ── Layout ──
   if (input.layout && opts.allowedLayouts && opts.allowedLayouts.length > 0) {
     if (!opts.allowedLayouts.includes(input.layout)) {
       push('layout', `"${input.layout}" is not one of this site's layouts.`);
     }
   }
 
-  // ── Tags ──
   for (const tag of input.tags ?? []) {
     if (!isValidSlug(tag)) {
       push('tags', `Tag "${tag}" must be lowercase with hyphens instead of spaces.`);
@@ -117,11 +102,8 @@ export function validatePost(input: PostInput, opts: ValidateOptions = {}): Vali
 }
 
 /**
- * Normalizes the form's publishAt into a UTC Date.
- *
- * A bare local-time string is interpreted in `timeZone`; a Date is already an
- * absolute instant and passes through. Returns null when unparseable so callers
- * can report it rather than getting an Invalid Date silently.
+ * Normalizes the form's publishAt into a UTC Date. A bare local-time string is
+ * interpreted in `timeZone`; a Date passes through. Returns null when unparseable.
  */
 export function coercePublishAt(
   value: string | Date,
@@ -130,7 +112,7 @@ export function coercePublishAt(
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
 
   try {
-    // An explicit offset or Z means it's already absolute — don't reinterpret.
+    // An explicit offset or Z is already absolute; don't reinterpret in timeZone.
     if (/[Zz]$|[+-]\d{2}:\d{2}$/.test(value.trim())) {
       const parsed = new Date(value);
       return Number.isNaN(parsed.getTime()) ? null : parsed;

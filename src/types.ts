@@ -1,14 +1,8 @@
-/**
- * Core domain types.
- *
- * Deliberately free of any storage or framework concern — these describe a post,
- * not a database row or an Astro component. Adapters map to and from these.
- */
+/** Core domain types, free of storage and framework concerns. Adapters map to and from these. */
 
 /**
- * Author intent, not visibility. Whether a post is publicly visible is derived
- * (see core/status.ts) so that scheduling doesn't require a background job
- * flipping rows at the appointed minute.
+ * Author intent, not visibility. Visibility is derived (core/status.ts) so
+ * scheduling needs no background job to flip rows.
  */
 export type PostStatus = 'draft' | 'scheduled' | 'published' | 'archived';
 
@@ -60,7 +54,6 @@ export interface Post {
 /** Fields a caller supplies on create. Timestamps and id are storage's job. */
 export type NewPost = Omit<Post, 'id' | 'createdAt' | 'updatedAt'>;
 
-/** Any subset may be patched. */
 export type PostPatch = Partial<Omit<Post, 'id' | 'createdAt'>>;
 
 /** Draft shape coming off the form, before validation fills in defaults. */

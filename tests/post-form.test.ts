@@ -55,7 +55,7 @@ describe('parseTags', () => {
 
 describe('suggestSlug', () => {
   it('delegates to the core slugify', () => {
-    // The point of the extraction: one implementation, not two.
+    // One slug implementation shared by client and server.
     const headline = 'Botox vs Dysport: What’s the Difference?';
     expect(suggestSlug(headline)).toBe(slugify(headline));
   });
@@ -142,8 +142,7 @@ describe('serializePostForm', () => {
   });
 
   it('lets a project merge its own fields on top', () => {
-    // Alpenglow's relatedServices — the seam that keeps per-site fields out of
-    // the shared serializer.
+    // Per-site fields stay out of the shared serializer.
     const payload = { ...serializePostForm(base), relatedServices: ['injectables'] };
     expect(payload.relatedServices).toEqual(['injectables']);
     expect(payload.headline).toBe('Hello World');

@@ -4,8 +4,7 @@ import { sanitizePostHtml } from '../src/core/sanitize.js';
 
 describe('normalizeLinkHref', () => {
   it('adds https:// to a bare domain', () => {
-    // The bug this exists for: without a scheme the browser resolves this
-    // against the current page URL.
+    // Without a scheme the browser resolves this against the current page URL.
     expect(normalizeLinkHref('thecbcreative.com')).toBe('https://thecbcreative.com');
     expect(normalizeLinkHref('www.example.com')).toBe('https://www.example.com');
     expect(normalizeLinkHref('sub.example.co.uk')).toBe('https://sub.example.co.uk');
@@ -37,8 +36,8 @@ describe('normalizeLinkHref', () => {
   });
 
   it('turns a bare email into a mailto link', () => {
-    expect(normalizeLinkHref('erika@alpenglowaesthetique.com')).toBe(
-      'mailto:erika@alpenglowaesthetique.com',
+    expect(normalizeLinkHref('hello@example.com')).toBe(
+      'mailto:hello@example.com',
     );
   });
 

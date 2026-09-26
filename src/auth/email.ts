@@ -1,17 +1,11 @@
 /**
  * Transactional email for auth flows, via Resend.
  *
- * Sends from a CB Creative address rather than each client's own domain. That's
- * deliberate: one verified sending domain covers every client site, so onboarding
- * never requires DNS changes from the client, and deliverability rides on a
- * domain with existing sending history instead of a cold one.
- *
- * If a client ever needs mail from their own domain, verify it in Resend and pass
- * a different `from` — nothing else changes.
+ * Sends from one verified CB Creative domain for every client site, so
+ * onboarding needs no client DNS changes. To send from a client's own domain,
+ * verify it in Resend and pass `from`.
  */
 
-// Type-only, so it's erased at runtime and doesn't pull the module in. The
-// implementation is imported dynamically at send time — see sendPasswordReset.
 import type { Resend as ResendClient } from 'resend';
 
 export interface EmailConfig {
@@ -33,15 +27,8 @@ export interface ResetEmailArgs {
 export function createEmailSender(config: EmailConfig) {
   const from = config.from ?? DEFAULT_FROM;
 
-  /**
-   * Resolved on first send rather than at module load.
-   *
-   * Two reasons. It keeps the package importable by a consumer that never
-   * configures email — otherwise a top-level import makes `resend` mandatory for
-   * everyone and the "inert without a key" default becomes a lie. And it keeps
-   * the module off the hot path: nothing loads until a reset is actually
-   * requested, which on a serverless deploy is almost never.
-   */
+  // Imported on first send rather than at module load, so `resend` stays off
+  // the load path until a reset is actually requested.
   let clientPromise: Promise<ResendClient> | null = null;
 
   function getClient(): Promise<ResendClient> {
@@ -53,8 +40,8 @@ export function createEmailSender(config: EmailConfig) {
     async sendPasswordReset({ to, url }: ResetEmailArgs): Promise<void> {
       const subject = `Reset your ${config.siteName} password`;
 
-      // Plain text alongside HTML — some clients strip HTML, and a text part
-      // meaningfully improves spam scoring on transactional mail.
+      // Plain-text part alongside HTML: some clients strip HTML, and it improves
+      // spam scoring.
       const text = [
         `Someone asked to reset the password for your ${config.siteName} website login.`,
         '',
@@ -78,9 +65,8 @@ export function createEmailSender(config: EmailConfig) {
       const resend = await getClient();
       const { error } = await resend.emails.send({ from, to, subject, text, html });
 
-      // Surface failures to the caller. Better Auth calls this without awaiting
-      // (to avoid a timing oracle), so this mostly ends up in server logs — but
-      // swallowing it silently would make "no email arrived" undebuggable.
+      // Throw rather than swallow, so the caller's catch logs it and "no email
+      // arrived" stays debuggable.
       if (error) {
         throw new Error(`Resend failed to send the reset email: ${error.message}`);
       }
@@ -88,7 +74,7 @@ export function createEmailSender(config: EmailConfig) {
   };
 }
 
-/** Minimal escaping — these values are ours, but interpolation deserves care. */
+/** Minimal escaping for values interpolated into the email HTML. */
 function escapeHtml(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }

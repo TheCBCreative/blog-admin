@@ -1,22 +1,13 @@
 /**
- * Creates Better Auth's tables (user, session, account, verification, rateLimit).
- *
- * rateLimit is only created once rateLimit.storage is set to 'database' in the
- * auth config — which it is, because in-memory counters are useless on
- * serverless where invocations don't share memory.
+ * Creates Better Auth's tables (user, session, account, verification, and
+ * rateLimit, since create-auth.ts uses database rate-limit storage).
  *
  *   npm run db:migrate-auth
  *
- * Uses Better Auth's programmatic migration API rather than `npx auth@latest
- * migrate`. The CLI has to locate and load an auth config file, and it can't
- * load ours — it fails with "couldn't read your auth config" because the config
- * imports TypeScript source. Running through tsx avoids that entirely.
- *
- * This keeps the auth schema owned by Better Auth rather than hand-copied into
- * a .sql file, so it stays correct across upgrades and plugin additions.
- *
- * Only works with the built-in Kysely adapter, which is what passing a Pool
- * gives us.
+ * Uses Better Auth's programmatic migration API under tsx because the
+ * `auth@latest migrate` CLI can't load a config that imports TypeScript source.
+ * Keeps the auth schema owned by Better Auth rather than hand-copied into db/.
+ * Requires the built-in Kysely adapter, which passing a Pool provides.
  */
 
 import { dirname, join } from 'node:path';
@@ -29,7 +20,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 try {
   process.loadEnvFile(join(here, '..', '.env'));
 } catch {
-  // Handled below.
+  // A missing DATABASE_URL is reported below.
 }
 
 const { DATABASE_URL, BETTER_AUTH_SECRET, BETTER_AUTH_URL } = process.env;
@@ -42,8 +33,7 @@ if (!DATABASE_URL) {
 const auth = createBlogAuth({
   databaseUrl: DATABASE_URL,
   baseUrl: BETTER_AUTH_URL ?? 'http://localhost:4321',
-  // Migrations only read the schema, so a placeholder satisfies the length check
-  // when the real secret isn't set yet.
+  // Migrations only read the schema; the placeholder just passes the length check.
   secret: BETTER_AUTH_SECRET ?? 'x'.repeat(32),
 });
 

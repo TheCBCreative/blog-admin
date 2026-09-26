@@ -1,20 +1,14 @@
 /**
- * Visibility derivation.
- *
- * The single rule for "is this post publicly visible" lives here. Nothing else
- * should reimplement it — that's how a draft ends up leaking on one route but
- * not another.
+ * The single rule for whether a post is publicly visible. Don't reimplement it
+ * elsewhere, or a draft can leak on one route but not another.
  */
 
 import type { Post, PostStatus } from '../types.js';
 
 /**
- * A post is live if it's explicitly published, or scheduled and its moment has
- * arrived. Drafts and archived posts are never live.
- *
- * Note the `scheduled` case is time-dependent, so on a statically built site the
- * post appears only after the next build. A daily rebuild covers that; with
- * on-demand rendering it's immediate.
+ * A post is live if it's published, or scheduled and its moment has arrived.
+ * Time-dependent: a statically built site only shows a scheduled post after the
+ * next build.
  */
 export function isLive(post: Pick<Post, 'status' | 'publishAt'>, now: Date = new Date()): boolean {
   switch (post.status) {
@@ -28,11 +22,7 @@ export function isLive(post: Pick<Post, 'status' | 'publishAt'>, now: Date = new
   }
 }
 
-/**
- * What the admin list should display, which is not the same as `status` —
- * a 'scheduled' post whose time has passed reads as live to a visitor, so
- * showing "Scheduled" would be misleading.
- */
+/** Admin-facing status: a 'scheduled' post whose time has passed shows as 'live'. */
 export type DisplayStatus = 'draft' | 'scheduled' | 'live' | 'archived';
 
 export function displayStatus(
@@ -54,11 +44,8 @@ export function canCancelSchedule(
 }
 
 /**
- * Resolves what `publishedAt` should be after a status transition.
- *
- * Returns the existing value when already set, so editing a published post
- * doesn't reset its original publish date — that would break BlogPosting
- * schema's datePublished and confuse search engines about content freshness.
+ * Resolves `publishedAt` after a status transition. An existing value is always
+ * kept so edits don't reset the original publish date (schema datePublished).
  */
 export function resolvePublishedAt(
   current: Date | undefined,

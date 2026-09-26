@@ -1,8 +1,6 @@
 /**
- * Neon (Postgres) implementation of PostStore.
- *
- * Every query is parameterized via the driver's tagged template — no string
- * interpolation anywhere in this file, ever.
+ * Neon (Postgres) implementation of PostStore. Every query is parameterized via
+ * the driver's tagged template; never build SQL by string interpolation.
  */
 
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
@@ -39,7 +37,9 @@ const toDate = (v: string | Date): Date => (v instanceof Date ? v : new Date(v))
 const toOptDate = (v: string | Date | null): Date | undefined => (v == null ? undefined : toDate(v));
 const opt = <T>(v: T | null): T | undefined => (v == null ? undefined : v);
 
-/** Row → domain. Adapters own this mapping so the domain type stays clean. */
+const toStatusArray = (status: ListOptions['status']): PostStatus[] | null =>
+  status ? (Array.isArray(status) ? status : [status]) : null;
+
 function rowToPost(row: PostRow): Post {
   return {
     id: row.id,
@@ -72,7 +72,6 @@ function rowToPost(row: PostRow): Post {
   };
 }
 
-/** Postgres unique-violation code. */
 const UNIQUE_VIOLATION = '23505';
 
 function isUniqueViolation(err: unknown): boolean {
@@ -82,11 +81,7 @@ function isUniqueViolation(err: unknown): boolean {
 export function createNeonPostStore(sql: NeonQueryFunction<false, false>): PostStore {
   return {
     async list(opts: ListOptions = {}): Promise<Post[]> {
-      const statuses = opts.status
-        ? Array.isArray(opts.status)
-          ? opts.status
-          : [opts.status]
-        : null;
+      const statuses = toStatusArray(opts.status);
       const limit = opts.limit ?? 100;
       const offset = opts.offset ?? 0;
       const asc = opts.order === 'oldest';
@@ -106,7 +101,7 @@ export function createNeonPostStore(sql: NeonQueryFunction<false, false>): PostS
       const limit = opts.limit ?? 100;
       const offset = opts.offset ?? 0;
 
-      // Liveness filter pushed into SQL — mirrors core/status.ts isLive().
+      // Must mirror core/status.ts isLive(), as must listTags().
       const rows = (await sql`
         SELECT * FROM posts
         WHERE status = 'published'
@@ -119,11 +114,7 @@ export function createNeonPostStore(sql: NeonQueryFunction<false, false>): PostS
     },
 
     async count(opts = {}): Promise<number> {
-      const statuses = opts.status
-        ? Array.isArray(opts.status)
-          ? opts.status
-          : [opts.status]
-        : null;
+      const statuses = toStatusArray(opts.status);
 
       const rows = (await sql`
         SELECT COUNT(*)::int AS n FROM posts
@@ -187,9 +178,8 @@ export function createNeonPostStore(sql: NeonQueryFunction<false, false>): PostS
     },
 
     async update(id: string, patch: PostPatch): Promise<Post> {
-      // COALESCE-with-sentinel keeps this a single statement without dynamic SQL.
-      // Passing null for a key means "leave unchanged"; clearing a field is done
-      // by passing an empty string, which the domain treats as absent.
+      // COALESCE keeps this one static statement: an absent key leaves the column
+      // unchanged, so fields can't be set to NULL here (clear text with '').
       try {
         const rows = (await sql`
           UPDATE posts SET
@@ -244,12 +234,7 @@ export function createNeonPostStore(sql: NeonQueryFunction<false, false>): PostS
   };
 }
 
-/**
- * Convenience wrapper: build a store straight from a connection string.
- *
- * Saves consumers from importing the driver themselves just to construct a
- * client, and keeps the driver version pinned in one place.
- */
+/** Builds a store from a connection string, so consumers needn't import the driver. */
 export function createNeonPostStoreFromUrl(databaseUrl: string): PostStore {
   return createNeonPostStore(neon(databaseUrl) as NeonQueryFunction<false, false>);
 }

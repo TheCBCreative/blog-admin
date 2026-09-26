@@ -1,14 +1,10 @@
 /**
- * Browser-side auth calls.
+ * Browser-side auth calls: plain `fetch` against Better Auth's JSON endpoints,
+ * usable from any framework.
  *
- * Better Auth's endpoints take plain JSON, so this is `fetch` and nothing else —
- * no auth client library, no framework. That's what makes it reusable: an Astro
- * page, a React component, and a plain <script> can all call these.
- *
- * The important thing living here is not the fetch, it's the ERROR MESSAGE
- * POLICY. Which failures may be described precisely and which must stay vague is
- * a security decision, and it should be made once here rather than re-decided in
- * every consuming site's markup.
+ * The error-message policy here is a security decision — which failures may be
+ * described precisely and which must stay vague — so it's made once here rather
+ * than in each consuming site.
  */
 
 import { rateLimitMessage } from './retry.js';
@@ -35,6 +31,18 @@ const NETWORK_MESSAGE = 'Could not reach the server. Check your connection.';
  */
 const CREDENTIALS_MESSAGE = 'Those credentials did not work.';
 
+function failure(message: string): AuthResult {
+  return { ok: false, rateLimited: false, message };
+}
+
+function rateLimited(response: Response, action?: string): AuthResult {
+  return {
+    ok: false,
+    rateLimited: true,
+    message: rateLimitMessage(response.headers.get('X-Retry-After'), action),
+  };
+}
+
 export function createAuthClient(options: AuthClientOptions = {}) {
   const basePath = (options.basePath ?? DEFAULT_BASE_PATH).replace(/\/$/, '');
   const doFetch = options.fetchImpl ?? ((...args: Parameters<typeof fetch>) => fetch(...args));
@@ -53,38 +61,21 @@ export function createAuthClient(options: AuthClientOptions = {}) {
         const response = await post('/sign-in/email', { email: email.trim(), password });
         if (response.ok) return { ok: true };
 
-        if (response.status === 429) {
-          return {
-            ok: false,
-            rateLimited: true,
-            message: rateLimitMessage(response.headers.get('X-Retry-After')),
-          };
-        }
-        return { ok: false, rateLimited: false, message: CREDENTIALS_MESSAGE };
+        if (response.status === 429) return rateLimited(response);
+        return failure(CREDENTIALS_MESSAGE);
       } catch {
-        return { ok: false, rateLimited: false, message: NETWORK_MESSAGE };
+        return failure(NETWORK_MESSAGE);
       }
     },
 
     /**
-     * Requests a reset link.
+     * Requests a reset link. `redirectTo` is where the emailed link lands after
+     * Better Auth validates the token (it must be sent with the request);
+     * defaults to `/admin/reset-password` on the current origin.
      *
-     * `redirectTo` is where the emailed link lands after Better Auth validates
-     * the token — defaults to `/admin/reset-password` on the current origin,
-     * which is where every site so far has put that page. Pass it explicitly
-     * only if a project's reset page lives somewhere else.
-     *
-     * (Better Auth requires this value on the request itself — there's no way
-     * to configure a server-side default instead, since the emailed link's
-     * destination is baked in at send time.)
-     *
-     * Reports success even when the address has no account — and note it does so
-     * by ignoring the response body entirely, not by inspecting it. Telling the
-     * caller "no account found" would confirm which emails are registered to
-     * anyone who asks, which for a single-admin site is a meaningful disclosure.
-     *
-     * Rate limiting is the one thing worth surfacing, since the user genuinely
-     * needs to know to wait.
+     * Reports success whether or not the account exists, without inspecting the
+     * response body, so it never reveals which emails are registered. Only rate
+     * limiting is surfaced.
      */
     async requestPasswordReset(email: string, redirectTo?: string): Promise<AuthResult> {
       try {
@@ -93,56 +84,35 @@ export function createAuthClient(options: AuthClientOptions = {}) {
           redirectTo: redirectTo ?? `${window.location.origin}/admin/reset-password`,
         });
 
-        if (response.status === 429) {
-          return {
-            ok: false,
-            rateLimited: true,
-            message: rateLimitMessage(response.headers.get('X-Retry-After'), 'requests'),
-          };
-        }
+        if (response.status === 429) return rateLimited(response, 'requests');
         return { ok: true };
       } catch {
-        return { ok: false, rateLimited: false, message: NETWORK_MESSAGE };
+        return failure(NETWORK_MESSAGE);
       }
     },
 
     /**
-     * Completes a reset using the emailed token.
-     *
-     * Here it IS safe to be specific about an invalid or expired token: the value
-     * came from an email we sent, so saying it's expired reveals nothing about
-     * which accounts exist, and a vague error would leave the user with no idea
-     * they simply need a fresh link.
+     * Completes a reset using the emailed token. Being specific about an invalid
+     * or expired token is safe: the token came from our email, so it reveals
+     * nothing about which accounts exist.
      */
     async resetPassword(token: string, newPassword: string): Promise<AuthResult> {
       try {
         const response = await post('/reset-password', { token, newPassword });
         if (response.ok) return { ok: true };
 
-        if (response.status === 429) {
-          return {
-            ok: false,
-            rateLimited: true,
-            message: rateLimitMessage(response.headers.get('X-Retry-After'), 'attempts'),
-          };
-        }
-        return {
-          ok: false,
-          rateLimited: false,
-          message:
-            'That reset link is no longer valid. Links expire after an hour and can only be used once — request a new one.',
-        };
+        if (response.status === 429) return rateLimited(response, 'attempts');
+        return failure(
+          'That reset link is no longer valid. Links expire after an hour and can only be used once — request a new one.',
+        );
       } catch {
-        return { ok: false, rateLimited: false, message: NETWORK_MESSAGE };
+        return failure(NETWORK_MESSAGE);
       }
     },
 
     /**
-     * Changes the password for the signed-in user.
-     *
-     * "That current password is not correct" is safe to say here precisely
-     * because the caller already holds a valid session — they've proven who they
-     * are, so the message discloses nothing they couldn't already determine.
+     * Changes the signed-in user's password. A specific wrong-password message is
+     * safe here because the caller already holds a valid session.
      */
     async changePassword(
       currentPassword: string,
@@ -157,31 +127,19 @@ export function createAuthClient(options: AuthClientOptions = {}) {
         });
         if (response.ok) return { ok: true };
 
-        if (response.status === 429) {
-          return {
-            ok: false,
-            rateLimited: true,
-            message: rateLimitMessage(response.headers.get('X-Retry-After'), 'attempts'),
-          };
-        }
-        return {
-          ok: false,
-          rateLimited: false,
-          message: 'That current password is not correct.',
-        };
+        if (response.status === 429) return rateLimited(response, 'attempts');
+        return failure('That current password is not correct.');
       } catch {
-        return { ok: false, rateLimited: false, message: NETWORK_MESSAGE };
+        return failure(NETWORK_MESSAGE);
       }
     },
 
     async signOut(): Promise<AuthResult> {
       try {
         const response = await post('/sign-out', {});
-        return response.ok
-          ? { ok: true }
-          : { ok: false, rateLimited: false, message: 'Could not sign out.' };
+        return response.ok ? { ok: true } : failure('Could not sign out.');
       } catch {
-        return { ok: false, rateLimited: false, message: NETWORK_MESSAGE };
+        return failure(NETWORK_MESSAGE);
       }
     },
   };

@@ -1,11 +1,3 @@
-/**
- * Rate-limit retry header parsing.
- *
- * Framework-agnostic on purpose — this is plain TS with no DOM or framework
- * dependency, so a Next/SvelteKit/plain-HTML consumer gets the same behaviour as
- * an Astro one.
- */
-
 /** Bounds on a plausible cooldown. Outside this, assume we misread the header. */
 const MIN_SECONDS = 1;
 const MAX_SECONDS = 3600;
@@ -14,12 +6,9 @@ const MAX_SECONDS = 3600;
  * Turns Better Auth's `X-Retry-After` into human-readable text, or null when the
  * value can't be trusted.
  *
- * The header's units are not reliable. It has come back as a large timestamp-like
- * value rather than the documented seconds count, which is how a user once saw
- * "try again in 178594298785556 seconds". So rather than assuming, work out which
- * form it's in and sanity-check the result — a nonsense number is worse than a
- * generic message, so an out-of-range value returns null and the caller falls
- * back to vaguer wording.
+ * The header isn't reliably the documented seconds count (it can arrive as a
+ * timestamp), so its form is detected and the result range-checked. A nonsense
+ * number is worse than a generic message, so out-of-range returns null.
  */
 export function parseRetryAfter(raw: string | null | undefined): string | null {
   const seconds = retryAfterSeconds(raw);

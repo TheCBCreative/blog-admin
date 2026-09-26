@@ -1,16 +1,9 @@
 /**
- * Post form serialization and field suggestions.
+ * Post form serialization and field suggestions. Reuses core's derive and slug
+ * logic so the form never suggests values the server would compute differently.
  *
- * This exists to stop the form's browser script from reimplementing the derive
- * and slug logic. The inline version in Alpenglow had its own copies of
- * toPlainText, the truncation rule (including the `maxLength * 0.6` sentence
- * threshold), and slugify — so tuning the package silently left the form
- * suggesting text the server would never save. That failure looks like a display
- * glitch, which is the worst kind.
- *
- * Deliberately NOT a form renderer. Field markup and any project-specific inputs
- * stay in the consuming site, because those genuinely differ per client. What's
- * shared is the interpretation of values, not their presentation.
+ * Deliberately not a form renderer: markup and project-specific inputs stay in
+ * the consuming site.
  */
 
 import {
@@ -29,11 +22,8 @@ export function isPostFormMode(value: string): value is PostFormMode {
 }
 
 /**
- * The status a mode produces.
- *
- * 'schedule' resolves to 'scheduled' regardless of the date — the service
- * decides whether a past date means it's already live, so this stays a pure
- * mapping with no clock involved.
+ * The status a mode produces. 'schedule' maps to 'scheduled' regardless of the
+ * date; the service decides whether a past date means it's already live.
  */
 export function statusForMode(mode: PostFormMode): PostStatus {
   switch (mode) {
@@ -47,11 +37,8 @@ export function statusForMode(mode: PostFormMode): PostStatus {
 }
 
 /**
- * Splits a comma-separated tag input into normalised slugs.
- *
- * Applied here as well as server-side so what the author typed matches what
- * comes back. Spaces become hyphens rather than being stripped, so "lip filler"
- * reads as one tag instead of collapsing to "lipfiller".
+ * Splits a comma-separated tag input into normalised, de-duplicated slugs.
+ * Spaces become hyphens, so "lip filler" becomes "lip-filler".
  */
 export function parseTags(raw: string | null | undefined): string[] {
   if (!raw) return [];
@@ -83,10 +70,9 @@ export interface SuggestedFields {
 }
 
 /**
- * Derives all three suggestable fields in one call.
- *
- * Order matters: the meta description prefers the excerpt over the body, so a
- * caller refreshing suggestions should pass the excerpt it already has.
+ * Derives all three suggestable fields in one call. The meta description
+ * prefers the excerpt over the body, so pass the current excerpt when
+ * refreshing.
  */
 export function suggestPostFields(sources: SuggestionSources): SuggestedFields {
   return {
@@ -139,15 +125,13 @@ function orUndefined(value: string | undefined): string | undefined {
 }
 
 /**
- * Turns form values into the API payload.
- *
- * Returns only the shared fields. A site with extra inputs spreads its own on
- * top rather than this trying to anticipate them:
+ * Turns form values into the API payload. Returns only the shared fields; a
+ * site with extra inputs spreads its own on top:
  *
  *   { ...serializePostForm(values), relatedServices: [...] }
  *
- * publishAt is only included when scheduling — sending it otherwise would let a
- * stale datetime in a hidden field alter a draft or an immediate publish.
+ * publishAt is only sent when scheduling, so a stale value in a hidden field
+ * can't alter a draft or an immediate publish.
  */
 export function serializePostForm(values: PostFormValues): SerializedPost {
   const status = statusForMode(values.mode);

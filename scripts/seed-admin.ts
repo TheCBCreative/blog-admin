@@ -3,13 +3,9 @@
  *
  *   npm run db:seed-admin -- admin@example.com
  *
- * Why this exists: runtime config sets disableSignUp, so there is no API path to
- * the first user — which is the point. This builds a throwaway auth instance
- * with sign-up enabled, creates exactly one account, and exits. Nothing
- * long-lived ever has sign-up on.
- *
- * The password is generated here rather than passed as an argument so it never
- * lands in shell history. It's printed once and not stored.
+ * Sign-up is disabled at runtime, so this uses a short-lived auth instance with
+ * sign-up enabled; nothing long-lived ever has it on. The password is generated
+ * here, not passed as an argument, so it never lands in shell history.
  */
 
 import { randomBytes } from 'node:crypto';
@@ -22,7 +18,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 try {
   process.loadEnvFile(join(here, '..', '.env'));
 } catch {
-  // Handled by the checks below.
+  // Missing variables are reported below.
 }
 
 const email = process.argv[2];
@@ -43,8 +39,7 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
-// URL-safe, ~32 chars. Long because nobody memorizes it — it goes straight
-// into a password manager.
+// URL-safe, 32 chars; meant for a password manager, not memory.
 const password = randomBytes(24).toString('base64url');
 
 const auth = createBlogAuth({
@@ -55,14 +50,13 @@ const auth = createBlogAuth({
   allowSignUp: true,
 });
 
-// Preflight: confirm Better Auth's tables exist before attempting a sign-up.
-// Without this, a missing-schema error surfaces as something unrelated.
+// Check Better Auth's tables exist first; otherwise a missing schema surfaces
+// as an unrelated sign-up error.
 const { Client } = await import('@neondatabase/serverless');
 const probe = new Client(DATABASE_URL!);
 
-// Without an error listener, a dropped socket or auth rejection emits an
-// unhandled 'error' event and crashes with an event-emitter trace rather than
-// the actual Postgres message.
+// Without a listener, a dropped socket or auth rejection crashes with an
+// unhandled 'error' event instead of the Postgres message.
 probe.on('error', (err: Error) => {
   console.error(`\ndatabase error: ${err.message}`);
 });
@@ -109,9 +103,8 @@ try {
 } catch (err) {
   const message = err instanceof Error ? err.message : String(err);
 
-  // Print the real error first, always. An earlier version of this script
-  // pattern-matched the message to guess at the cause and mislabelled a
-  // missing-table error as "account already exists" — misleading beats verbose.
+  // Always print the real error; the pattern match below is only a hint and
+  // can misclassify.
   console.error('Failed to create the admin account.\n');
   console.error(`  ${message}\n`);
 

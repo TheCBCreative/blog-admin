@@ -1,8 +1,7 @@
 -- blog-admin initial schema (Postgres / Neon)
 --
--- Better Auth manages its own tables (user, session, account, verification) and
--- creates them via its own migration tooling. Keep this file to post storage
--- only so the two can be applied and versioned independently.
+-- Post storage only. Better Auth's tables are created by its own migration
+-- (npm run db:migrate-auth) so the two can be versioned independently.
 
 CREATE TABLE IF NOT EXISTS posts (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -44,8 +43,7 @@ CREATE TABLE IF NOT EXISTS posts (
   CONSTRAINT posts_scheduled_needs_time
     CHECK (status <> 'scheduled' OR publish_at IS NOT NULL),
 
-  -- Mirrors the app-level rule so a direct DB write can't create an
-  -- accessibility gap. Belt and braces on purpose.
+  -- Mirrors the app-level rule so a direct DB write can't skip alt text.
   CONSTRAINT posts_image_needs_alt
     CHECK (image_url IS NULL OR (image_alt IS NOT NULL AND length(trim(image_alt)) > 0))
 );

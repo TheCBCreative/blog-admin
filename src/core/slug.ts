@@ -1,31 +1,20 @@
 /**
- * Slug generation.
- *
- * Slugs are permanent-ish: changing one after publish breaks inbound links and
- * loses accumulated search equity. So generation is deterministic and the admin
- * warns before changing a published post's slug.
+ * Slug generation. Changing a published slug breaks inbound links, so generation
+ * is deterministic.
  */
 
 const MAX_SLUG_LENGTH = 80;
 
-/**
- * Turns a headline into a URL-safe slug.
- *
- * Handles accented characters by decomposing them (NFD) and stripping the
- * combining marks, so "Beyoncé's Glow" becomes "beyonces-glow" rather than
- * dropping the character entirely and producing "beyonc-s-glow".
- */
+/** Turns a headline into a URL-safe slug: "Beyoncé's Glow" -> "beyonces-glow". */
 export function slugify(input: string): string {
   return input
     .normalize('NFD')
-    // Strip the combining marks NFD leaves behind. Uses the Unicode property
-    // escape rather than a literal character range — the marks themselves are
-    // invisible in source and get silently mangled by editors and copy-paste.
+    // Property escape, not a literal range: combining marks are invisible in
+    // source and get mangled by editors.
     .replace(/\p{Diacritic}/gu, '')
     .toLowerCase()
     // Apostrophes vanish rather than becoming separators: "erika's" -> "erikas".
     .replace(/['‘’]/g, '')
-    // Everything else non-alphanumeric becomes a separator.
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, MAX_SLUG_LENGTH)
@@ -33,12 +22,7 @@ export function slugify(input: string): string {
     .replace(/-+$/g, '');
 }
 
-/**
- * Appends a numeric suffix until the slug is unique.
- *
- * `exists` is injected rather than importing a store, so this stays pure and
- * testable and works against any backend.
- */
+/** Appends a numeric suffix until `exists` reports the slug is free. */
 export async function uniqueSlug(
   desired: string,
   exists: (slug: string) => Promise<boolean>,
@@ -51,7 +35,6 @@ export async function uniqueSlug(
     const candidate = `${base}-${n}`;
     if (!(await exists(candidate))) return candidate;
   }
-  // Practically unreachable; better than looping forever or silently colliding.
   throw new Error(`Could not generate a unique slug for "${desired}" after ${maxAttempts} attempts`);
 }
 

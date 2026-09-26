@@ -1,9 +1,4 @@
-/**
- * Public entry point.
- *
- * Consumers should import from here, `./core`, or `./adapters/*` — never reach
- * into internal file paths, so refactors stay non-breaking.
- */
+/** Public entry point. Consumers import from here, `./core`, or `./adapters/*`, never internal paths. */
 
 export type {
   Post,

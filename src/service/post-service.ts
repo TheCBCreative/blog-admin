@@ -1,11 +1,7 @@
 /**
- * Post service — the orchestration layer.
- *
- * Owns the sequence that turns form input into a stored post: validate, resolve
- * the slug, work out the status timestamps, then write. Consumers call one
- * method rather than reimplementing that order, which is where the subtle bugs
- * live — a site that forgot resolvePublishedAt would silently reset publish
- * dates on every edit and quietly wreck its own BlogPosting schema.
+ * Post service: owns the validate → resolve slug → status timestamps → write
+ * sequence so consumers don't reimplement it. The order hides subtle bugs, e.g.
+ * skipping resolvePublishedAt silently resets publish dates on every edit.
  */
 
 import type { NewPost, Post, PostInput, PostStatus } from '../types.js';
@@ -21,18 +17,13 @@ export interface PostServiceConfig {
   layouts: readonly string[];
   timeZone?: string;
   /**
-   * Sanitizes rich-text HTML before storage — see core/sanitize.ts's
-   * createSanitizer(). Optional so a caller with no rich-text editor can
-   * skip it, but any project that accepts HTML input should set this.
+   * Sanitizes rich-text HTML before storage (see core/sanitize.ts's
+   * createSanitizer()). Any project that accepts HTML input should set this.
    */
   sanitizeHtml?: (html: string) => string;
 }
 
-/**
- * Result type rather than exceptions for validation failures. An API route needs
- * to turn field errors into a 422 body, and try/catch around a typed error is
- * clumsier than a discriminated union.
- */
+/** Validation failures are returned, not thrown, so an API route can map them to a 422. */
 export type ServiceResult<T> =
   | { ok: true; data: T }
   | { ok: false; errors: ValidationError[] };
@@ -59,6 +50,9 @@ export function createPostService(store: PostStore, config: PostServiceConfig): 
   const timeZone = config.timeZone ?? DEFAULT_TIME_ZONE;
   const defaultLayout = config.layouts[0] ?? 'standard';
   const sanitize = config.sanitizeHtml ?? ((html: string) => html);
+
+  const validate = (input: PostInput, now: Date) =>
+    validatePost(input, { allowedLayouts: config.layouts, timeZone, now });
 
   /** Shared shaping for create and update, once validation has passed. */
   function buildFields(input: PostInput, now: Date, existing?: Post) {
@@ -107,16 +101,11 @@ export function createPostService(store: PostStore, config: PostServiceConfig): 
     listTags: (now = new Date()) => store.listTags(now),
 
     async create(input, now = new Date()): Promise<ServiceResult<Post>> {
-      const errors = validatePost(input, {
-        allowedLayouts: config.layouts,
-        timeZone,
-        now,
-      });
+      const errors = validate(input, now);
       if (errors.length > 0) return invalid(errors);
 
-      // Derive from the headline unless an explicit slug was given, then make
-      // it unique. Uniqueness is also enforced by a DB constraint — this just
-      // avoids surfacing a raw conflict error for the common case.
+      // The DB also enforces uniqueness; this avoids surfacing a raw conflict
+      // error in the common case.
       const desired = input.slug ?? slugify(input.headline);
       const slug = await uniqueSlug(desired, (s) => store.slugExists(s));
 
@@ -131,9 +120,8 @@ export function createPostService(store: PostStore, config: PostServiceConfig): 
         return invalid([{ field: 'id', message: 'That post no longer exists.' }]);
       }
 
-      // Validate the MERGED result, not the patch alone. Validating only the
-      // patch would let `{ status: 'scheduled' }` through with no publishAt,
-      // producing a post that never becomes visible.
+      // Validate the merged result, not the patch: a patch of
+      // `{ status: 'scheduled' }` alone would pass with no publishAt.
       const merged: PostInput = {
         headline: input.headline ?? existing.headline,
         subheadline: input.subheadline ?? existing.subheadline,
@@ -152,15 +140,11 @@ export function createPostService(store: PostStore, config: PostServiceConfig): 
         slug: input.slug ?? existing.slug,
       };
 
-      const errors = validatePost(merged, {
-        allowedLayouts: config.layouts,
-        timeZone,
-        now,
-      });
+      const errors = validate(merged, now);
       if (errors.length > 0) return invalid(errors);
 
-      // Only re-resolve the slug if it actually changed, so a post keeps its own
-      // slug on edit rather than collecting a -2 suffix.
+      // Only re-resolve a changed slug, so a post doesn't collect a -2 suffix
+      // on every edit.
       let slug = existing.slug;
       if (input.slug !== undefined && input.slug !== existing.slug) {
         slug = await uniqueSlug(input.slug, (s) => store.slugExists(s, id));

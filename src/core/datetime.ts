@@ -1,25 +1,15 @@
 /**
  * Timezone handling for scheduling.
  *
- * ── The bug this file exists to prevent ─────────────────────────────────────
- * The client types "8/19 at 9:30am" meaning 9:30 in *their* timezone. Storing
- * that string, or `new Date('2026-08-19T09:30')` on a server running UTC, gives
- * you a moment that's hours off — and the error changes across DST boundaries,
- * so it looks intermittent.
- *
- * Rule: parse in the configured zone, store UTC, format back to the zone.
- * Everything crossing the storage boundary is UTC.
+ * Parse wall-clock input in the configured zone, store UTC, format back to the
+ * zone. Never `new Date('2026-08-19T09:30')`: that uses the server's zone, which
+ * is hours off and shifts across DST.
  */
 
 /** Default zone. Overridable per project via admin config. */
 export const DEFAULT_TIME_ZONE = 'America/Los_Angeles';
 
-/**
- * Offset between a zone and UTC at a given instant, in minutes.
- *
- * Derived via Intl rather than a hardcoded table so DST transitions are correct
- * without shipping timezone data — and so it stays correct if the rules change.
- */
+/** Offset between a zone and UTC at a given instant, in minutes, via Intl so DST is handled. */
 function zoneOffsetMinutes(instant: Date, timeZone: string): number {
   const dtf = new Intl.DateTimeFormat('en-US', {
     timeZone,
@@ -46,10 +36,9 @@ function zoneOffsetMinutes(instant: Date, timeZone: string): number {
  * Interprets wall-clock components as local time in `timeZone` and returns the
  * corresponding UTC instant.
  *
- * Two passes: guess using the offset at the naive instant, then re-check the
- * offset at the guessed instant. That second pass is what makes DST boundaries
- * correct — near a transition the two offsets differ, and the first guess alone
- * would land an hour off.
+ * The second offset lookup is required: near a DST transition the offset at the
+ * naive instant differs from the one at the guess, and the first guess alone
+ * lands an hour off.
  */
 export function zonedTimeToUtc(
   parts: { year: number; month: number; day: number; hour: number; minute: number },
@@ -66,11 +55,7 @@ export function zonedTimeToUtc(
   return new Date(naive - secondOffset * 60_000);
 }
 
-/**
- * Parses a `datetime-local` input value ("2026-08-19T09:30") as local time in
- * the given zone. Deliberately does not accept a plain `Date` — a Date is
- * already an absolute instant and needs no interpretation.
- */
+/** Parses a `datetime-local` input value ("2026-08-19T09:30") as local time in the given zone. */
 export function parseLocalDateTime(value: string, timeZone: string = DEFAULT_TIME_ZONE): Date {
   const match = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/.exec(value.trim());
   if (!match) throw new Error(`Unrecognized datetime-local value: "${value}"`);

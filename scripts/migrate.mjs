@@ -3,15 +3,12 @@
  *
  *   npm run db:migrate
  *
- * Uses the WebSocket Client rather than the HTTP `neon()` helper on purpose:
- * the HTTP driver runs one statement per call, and 001_init.sql contains a
- * plpgsql function whose body has its own semicolons inside $$ … $$. Splitting
- * the file on semicolons would tear that function in half, so the whole file
- * goes over a connection that accepts multi-statement SQL.
+ * Uses the WebSocket Client, not the HTTP `neon()` helper: HTTP runs one
+ * statement per call, and the plpgsql function in 001_init.sql has semicolons
+ * inside $$ … $$, so the file can't be split on them.
  *
- * Every statement is idempotent (IF NOT EXISTS / OR REPLACE), so re-running is
- * safe. This is deliberately not a migration *tracker* — at one schema file
- * that would be more machinery than the problem deserves. Revisit if db/ grows.
+ * Every statement is idempotent, so re-running is safe. Deliberately not a
+ * migration tracker; revisit if db/ grows.
  */
 
 import { readFile, readdir } from 'node:fs/promises';
@@ -25,7 +22,7 @@ const dbDir = join(here, '..', 'db');
 try {
   process.loadEnvFile(join(here, '..', '.env'));
 } catch {
-  // Fall through to the check below with a clearer message.
+  // A missing DATABASE_URL is reported below.
 }
 
 const url = process.env.DATABASE_URL;
@@ -43,13 +40,12 @@ if (files.length === 0) {
 }
 
 /**
- * Neon's free tier autosuspends, so the first connection after an idle spell can
- * drop mid-handshake. Retry a couple of times before giving up.
+ * Retries because Neon's free tier autosuspends, so the first connection after
+ * idle can drop mid-handshake.
  */
 async function connect(attempt = 1) {
   const client = new Client(url);
-  // Without this, a dropped socket emits an unhandled 'error' event and crashes
-  // with an event-emitter stack trace instead of something readable.
+  // Without a listener, a dropped socket crashes with an unhandled 'error' event.
   client.on('error', (err) => {
     console.error(`\ndatabase connection error: ${err.message}`);
   });
@@ -77,7 +73,6 @@ try {
     console.log('ok');
   }
 
-  // Confirm the result rather than trusting a silent success.
   const { rows } = await client.query(`
     SELECT column_name FROM information_schema.columns
     WHERE table_name = 'posts'

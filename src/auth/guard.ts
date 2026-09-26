@@ -1,15 +1,12 @@
 /**
- * Route protection.
+ * Route protection, in two layers on purpose:
  *
- * Two layers on purpose:
- *
- *   createAdminGuard  — Astro middleware. Redirects unauthenticated page
+ *   createAdminGuard  — Astro middleware; redirects unauthenticated page
  *                       requests to the login screen.
  *   requireSession    — called inside every API handler.
  *
- * The second is not redundant. Guarding pages while leaving handlers open is
- * the most common version of this bug: the form is behind a login, but a direct
- * POST to the endpoint that form submits to isn't.
+ * The second is not redundant: guarding pages alone leaves a direct POST to the
+ * form's endpoint open.
  */
 
 import type { BlogAuth } from './create-auth.js';
@@ -19,12 +16,9 @@ export interface GuardOptions {
   /** Where to send unauthenticated users. Always treated as public. */
   loginPath?: string;
   /**
-   * Prepended only to the outgoing redirect Location header, never used for
-   * matching incoming request paths. For a consumer deployed behind a
-   * proxy that strips a path prefix before the request reaches this app
-   * (so `pathname` here is always the unprefixed, real route) but whose
-   * redirect needs to resolve in the browser against the public, prefixed
-   * URL instead.
+   * Prepended to the login redirect's Location only, never used to match
+   * request paths. For deployments behind a proxy that strips a path prefix
+   * before the request reaches this app.
    */
   publicPrefix?: string;
   /** Path prefixes requiring a session. */
@@ -33,8 +27,8 @@ export interface GuardOptions {
   apiPrefixes?: string[];
   /**
    * Extra paths under a protected prefix that must stay reachable without a
-   * session. Added to the defaults rather than replacing them, so a consumer
-   * can't accidentally lock out password recovery by setting this.
+   * session. Added to the defaults, never replacing them, so setting this can't
+   * lock out password recovery.
    */
   publicPaths?: string[];
 }
@@ -46,11 +40,8 @@ const DEFAULTS = {
 };
 
 /**
- * Auth pages that live under /admin but cannot require a session.
- *
- * Password recovery is the obvious case and easy to miss: someone resetting a
- * password has no session by definition, so protecting these paths silently
- * redirects them to the login page and the flow appears to do nothing.
+ * Auth pages under /admin that must work without a session. Someone resetting a
+ * password has none, so guarding these would silently bounce them to login.
  */
 const PUBLIC_AUTH_PATHS = ['/admin/forgot-password', '/admin/reset-password'];
 
@@ -60,12 +51,9 @@ function matchesPrefix(pathname: string, prefix: string): boolean {
 }
 
 /**
- * Trailing slashes are normalised away before comparing.
- *
- * Astro's trailingSlash setting decides whether a request arrives as
- * /admin/login or /admin/login/, and an exact string match against one form
- * silently fails on the other — which would re-introduce the same lockout this
- * list exists to prevent.
+ * Strips trailing slashes before comparing. Astro's trailingSlash setting
+ * decides which form arrives, and an exact match on the other form would lock
+ * users out of the public paths.
  */
 function normalizePath(pathname: string): string {
   return pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
@@ -81,17 +69,15 @@ export async function getSession(auth: BlogAuth, request: Request): Promise<Sess
     const result = await auth.api.getSession({ headers: request.headers });
     return { user: result?.user ?? null, session: result?.session ?? null };
   } catch {
-    // A malformed or tampered cookie should read as "not logged in", never as an
-    // unhandled 500 that leaks a stack trace.
+    // A malformed or tampered cookie reads as "not logged in", never as a 500
+    // that leaks a stack trace.
     return { user: null, session: null };
   }
 }
 
 /**
- * Astro middleware factory.
- *
- * Populates locals.user / locals.session on every request so pages can read
- * them, and blocks unauthenticated access to the protected prefixes.
+ * Astro middleware factory. Populates locals.user / locals.session on every
+ * request and blocks unauthenticated access to the protected prefixes.
  */
 export function createAdminGuard(options: GuardOptions) {
   const loginPath = options.loginPath ?? DEFAULTS.loginPath;
@@ -108,20 +94,12 @@ export function createAdminGuard(options: GuardOptions) {
       url: URL;
       locals: Record<string, unknown>;
       /**
-       * Narrowed to the 3xx statuses rather than `number`.
-       *
-       * Not cosmetic. Function parameters are contravariant, so declaring this as
-       * `status?: number` made Astro's own `context.redirect` — which accepts only
-       * the redirect statuses — unassignable here, and every consumer passing it
-       * through middleware failed to typecheck. A subset of Astro's union is
-       * assignable; a superset is not. It also happens to be more honest, since a
-       * redirect that accepts 200 isn't a redirect.
+       * Narrowed to redirect statuses, not `number`: parameters are
+       * contravariant, so a wider type makes Astro's own `context.redirect`
+       * unassignable here.
        */
       redirect: (path: string, status?: 301 | 302 | 303 | 307 | 308) => Response;
-      /**
-       * Astro's APIContext.isPrerendered. Optional so non-Astro callers and the
-       * existing tests don't have to supply it.
-       */
+      /** Astro's APIContext.isPrerendered. Optional so non-Astro callers can omit it. */
       isPrerendered?: boolean;
     },
     next: () => Promise<Response>,
@@ -131,21 +109,12 @@ export function createAdminGuard(options: GuardOptions) {
     const isApi = apiPrefixes.some((p) => matchesPrefix(pathname, p));
     const isPage = protectedPrefixes.some((p) => matchesPrefix(pathname, p));
 
-    // Login and the password-recovery pages live under /admin but can't require
-    // a session. Pages only — an API path is never exempted here.
+    // Pages only: an API path is never exempted.
     const isPublic = !isApi && publicPaths.has(normalizePath(pathname));
 
-    /*
-     * A prerendered route has no real request behind it, so reading its headers
-     * is meaningless — Astro warns about exactly this, and the session would
-     * resolve to null every time regardless.
-     *
-     * Skipping the lookup is therefore not a behaviour change: it returns the
-     * same null it would have, without the warning and without a session
-     * round-trip on every public page view. A protected route is never
-     * prerendered, so this can't accidentally wave one through — but the
-     * ordering below makes that explicit rather than relying on it.
-     */
+    // A prerendered route has no real request, so its session is always null
+    // and Astro warns on reading its headers. Protected and API routes are
+    // excluded explicitly so this can never wave one through.
     const skipSession = context.isPrerendered === true && !isApi && !isPage;
 
     const { user, session } = skipSession
@@ -158,14 +127,8 @@ export function createAdminGuard(options: GuardOptions) {
       return next();
     }
 
-    if (isApi) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { 'content-type': 'application/json' },
-      });
-    }
+    if (isApi) return unauthorizedResponse();
 
-    // Preserve where they were headed so login can bounce them back.
     const target = encodeURIComponent(pathname + context.url.search);
     return context.redirect(`${options.publicPrefix ?? ''}${loginPath}?next=${target}`, 302);
   };
@@ -180,11 +143,9 @@ export class UnauthorizedError extends Error {
 }
 
 /**
- * Independent session check for API handlers.
- *
- * Call this at the top of every mutating endpoint. Do not rely on middleware
- * alone — middleware config drifts, route matchers get edited, and the failure
- * mode is silent.
+ * Independent session check for API handlers. Call it at the top of every
+ * mutating endpoint; don't rely on middleware alone, whose matchers can drift
+ * silently.
  */
 export async function requireSession(auth: BlogAuth, request: Request): Promise<SessionResult> {
   const result = await getSession(auth, request);
@@ -202,13 +163,15 @@ export function withAuth(
       const session = await requireSession(auth, request);
       return await handler({ request, session });
     } catch (err) {
-      if (err instanceof UnauthorizedError) {
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-          status: 401,
-          headers: { 'content-type': 'application/json' },
-        });
-      }
+      if (err instanceof UnauthorizedError) return unauthorizedResponse();
       throw err;
     }
   };
+}
+
+function unauthorizedResponse(): Response {
+  return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+    status: 401,
+    headers: { 'content-type': 'application/json' },
+  });
 }

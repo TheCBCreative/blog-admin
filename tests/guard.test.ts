@@ -38,11 +38,8 @@ const anon = () => createAdminGuard({ auth: fakeAuth(false) });
 const signedIn = () => createAdminGuard({ auth: fakeAuth(true) });
 
 describe('createAdminGuard — password recovery must stay reachable', () => {
-  /**
-   * Regression test. These pages sit under /admin, and protecting them meant an
-   * anonymous visitor was redirected to the login page — so clicking "forgot
-   * password" appeared to do nothing at all.
-   */
+  // These pages sit under /admin but must work without a session, or "forgot
+  // password" silently bounces to the login page.
   it('lets an anonymous visitor reach forgot-password', async () => {
     expect(await visit(anon(), '/admin/forgot-password')).toBe('next');
   });

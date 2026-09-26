@@ -1,9 +1,6 @@
 /**
- * Better Auth factory.
- *
- * The package owns the configuration so security defaults are set once here
- * rather than re-decided per client site. Consumers pass a connection string and
- * a base URL and get a configured instance back.
+ * Better Auth factory. The package owns the configuration so security defaults
+ * are set once here rather than per client site.
  */
 
 import { betterAuth } from 'better-auth';
@@ -11,51 +8,41 @@ import { Pool, types } from '@neondatabase/serverless';
 import { createEmailSender } from './email.js';
 
 /**
- * Return Postgres bigint (int8, OID 20) as a number rather than a string.
+ * Parse Postgres bigint (int8, OID 20) as a number instead of the driver's
+ * default string. Better Auth does arithmetic on rateLimit.lastRequest (a
+ * bigint); as a string, `lastRequest + window` concatenates and the rate limit
+ * never holds.
  *
- * ── The bug this fixes ──────────────────────────────────────────────────────
- * Better Auth's rateLimit table stores lastRequest as bigint. The driver returns
- * bigint as a string by default (correctly — int8 can exceed Number.MAX_SAFE_
- * INTEGER). Better Auth then does arithmetic on it, so `lastRequest + window`
- * concatenates instead of adding. Two consequences: X-Retry-After came back as a
- * nonsense 15-digit number, and the window check always looked expired, so the
- * limit triggered but never held — you could retry immediately.
- *
- * Coercing to Number is safe for this use: these are epoch-millisecond
- * timestamps, and Number stays exact until year ~287396. Do not rely on this if
- * a future table stores genuinely large bigints such as Snowflake IDs.
+ * Safe for epoch-millisecond timestamps. This is driver-global, so don't rely on
+ * it for genuinely large bigints such as Snowflake IDs.
  */
 types.setTypeParser(20, (value: string) => Number(value));
 
 export interface BlogAuthConfig {
   /** Postgres connection string. Use the pooled Neon string. */
   databaseUrl: string;
-  /** Public origin of the site, e.g. https://alpenglowaesthetique.com */
+  /** Public origin of the site, e.g. https://example.com */
   baseUrl: string;
   /** 32+ chars, high entropy. `openssl rand -base64 32`. */
   secret: string;
   /**
-   * Allows sign-up. Defaults to false and should stay false in production —
-   * with it enabled, anyone who finds /api/auth/sign-up/email can create an
-   * account on a client's admin. The seed script flips this on deliberately to
-   * create the single admin, then it goes back off.
+   * Allows sign-up. Default false; keep it false in production, or anyone who
+   * finds /api/auth/sign-up/email can create an admin account. Only one-off
+   * seed scripts enable it, to create the single admin.
    */
   allowSignUp?: boolean;
   /** Session lifetime in seconds. Default 7 days. */
   sessionMaxAge?: number;
-  /**
-   * Turns rate limiting off. Only for local development where repeated failed
-   * logins while testing are expected. Never set this in production.
-   */
+  /** Turns rate limiting off. Local development only; never set in production. */
   disableRateLimit?: boolean;
   /**
-   * Enables the forgot-password flow. Without it, the endpoint stays inert and
-   * password recovery is manual — a deliberate default, since a reset flow that
-   * can't actually deliver mail is worse than none.
+   * Enables the forgot-password flow. Without it the endpoint stays inert and
+   * recovery is manual, since a reset flow that can't deliver mail is worse than
+   * none.
    */
   email?: {
     resendApiKey: string;
-    /** Shown in the email body, e.g. "Alpenglow Aesthetique". */
+    /** Shown in the email body, e.g. "Acme Studio". */
     siteName: string;
     /** Override the default CB Creative sender. */
     from?: string;
@@ -70,10 +57,8 @@ export function createBlogAuth(config: BlogAuthConfig) {
   }
 
   return betterAuth({
-    // The Pool is the pg-compatible driver, which routes Better Auth through
-    // its built-in Kysely adapter — that's what scripts/migrate-auth.ts relies
-    // on to create the auth tables (see that script for why it runs the
-    // migration programmatically instead of via the `auth@latest migrate` CLI).
+    // A pg-compatible Pool routes Better Auth through its built-in Kysely
+    // adapter, which scripts/migrate-auth.ts depends on.
     database: new Pool({ connectionString: config.databaseUrl }),
 
     baseURL: config.baseUrl,
@@ -81,12 +66,11 @@ export function createBlogAuth(config: BlogAuthConfig) {
 
     emailAndPassword: {
       enabled: true,
-      // Closed by default. See the note on allowSignUp above.
+      // Closed by default; see BlogAuthConfig.allowSignUp.
       disableSignUp: config.allowSignUp !== true,
       minPasswordLength: 12,
-      // A password reset here should kill every existing session — if the reset
-      // is happening because a credential leaked, leaving old sessions alive
-      // defeats the point.
+      // A reset often follows a leaked credential, so existing sessions must not
+      // survive it.
       revokeSessionsOnPasswordReset: true,
 
       // Only wired when email is configured; otherwise the endpoint stays inert.
@@ -99,14 +83,9 @@ export function createBlogAuth(config: BlogAuthConfig) {
                 siteName: config.email!.siteName,
               });
 
-              /**
-               * Deliberately not awaited.
-               *
-               * Better Auth's docs call this out: awaiting the send makes the
-               * response time depend on whether the address exists, which leaks
-               * account existence to anyone timing the endpoint. Fire and let it
-               * settle; failures land in the server log.
-               */
+              // Deliberately not awaited: awaiting makes response time depend on
+              // whether the account exists, leaking that to anyone timing the
+              // endpoint.
               void sender
                 .sendPasswordReset({ to: user.email, url })
                 .catch((err) => console.error('[auth] reset email failed:', err));
@@ -125,49 +104,35 @@ export function createBlogAuth(config: BlogAuthConfig) {
       useSecureCookies: config.baseUrl.startsWith('https://'),
 
       ipAddress: {
-        /**
-         * Single trusted header, not a forwarded chain.
-         *
-         * Better Auth deliberately distrusts comma-separated x-forwarded-for
-         * values, because behind an appending proxy the leftmost token is
-         * client-controlled and therefore spoofable. The Astro route handler
-         * overwrites this header with ctx.clientAddress — a single value resolved
-         * by the platform — so it's safe to read here.
-         */
+        // Safe only because the Astro route handler overwrites this header with
+        // ctx.clientAddress (a single platform-resolved value). A raw forwarded
+        // chain would be spoofable: its leftmost entry is client-controlled.
         ipAddressHeaders: ['x-forwarded-for'],
       },
     },
 
     rateLimit: {
-      // Explicitly on rather than relying on the production-only default, so
-      // the behaviour is the same in dev and can actually be tested.
+      // Explicit rather than Better Auth's production-only default, so dev
+      // behaves the same and the limits can be tested.
       enabled: config.disableRateLimit !== true,
 
       window: 60,
       max: 100,
 
-      /**
-       * Database-backed, not the in-memory default.
-       *
-       * This is the part that matters on Vercel: serverless invocations don't
-       * share memory, so in-memory counters reset constantly and the limit
-       * becomes decorative. Requires the rateLimit table — run db:migrate-auth.
-       */
+      // Database-backed: serverless invocations don't share memory, so
+      // in-memory counters would reset constantly. Requires the rateLimit table
+      // (npm run db:migrate-auth).
       storage: 'database',
       modelName: 'rateLimit',
 
       customRules: {
-        // Better Auth already defaults this to 3/10s. Stated explicitly because
-        // it's the one limit standing between a leaked URL and a brute-forced
-        // admin password, and it shouldn't be invisible in the config.
+        // Matches Better Auth's default; stated explicitly because it's what
+        // stands between the login form and a brute-forced admin password.
         '/sign-in/email': { window: 10, max: 3 },
-        // Password reset can be used to spray email; same treatment.
+        // Prevents using password reset to spray email.
         '/request-password-reset': { window: 60, max: 3 },
-        /**
-         * Change-password takes the CURRENT password, so without a limit it's a
-         * brute-force oracle for anyone holding a stolen session cookie — they
-         * could guess the existing password without ever touching the login form.
-         */
+        // Takes the current password, so without a limit it's a brute-force
+        // oracle for anyone holding a stolen session cookie.
         '/change-password': { window: 60, max: 5 },
       },
     },

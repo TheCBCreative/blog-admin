@@ -1,8 +1,5 @@
 /**
- * Storage contracts.
- *
- * This is the swap point. Core and UI depend only on these interfaces, so moving
- * from Neon to anything else means writing one adapter — no changes above.
+ * Storage contracts. Core and UI depend only on these interfaces.
  *
  * Adapters are responsible for:
  *   - mapping rows to/from the Post domain type
@@ -24,11 +21,7 @@ export interface PostStore {
   /** Admin listing — includes drafts and archived. */
   list(opts?: ListOptions): Promise<Post[]>;
 
-  /**
-   * Public listing — only posts live as of `now`.
-   * Adapters should push this filter into the query rather than filtering in JS,
-   * so a large archive doesn't get fully loaded on every request.
-   */
+  /** Public listing: only posts live as of `now`. Filter in the query, not in JS. */
   listLive(now: Date, opts?: Pick<ListOptions, 'limit' | 'offset'>): Promise<Post[]>;
 
   count(opts?: Pick<ListOptions, 'status'>): Promise<number>;
@@ -57,9 +50,8 @@ export interface UploadedMedia {
 
 export interface MediaStore {
   /**
-   * Implementations must validate by magic bytes rather than filename, cap size,
-   * and re-encode rather than storing the original — re-encoding strips any
-   * embedded payload.
+   * Implementations must validate by magic bytes (not filename), cap size, and
+   * re-encode rather than store the original, which strips embedded payloads.
    */
   upload(file: File, opts?: { maxBytes?: number }): Promise<UploadedMedia>;
   delete(url: string): Promise<void>;

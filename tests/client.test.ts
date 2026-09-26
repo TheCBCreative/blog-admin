@@ -9,8 +9,7 @@ describe('retryAfterSeconds', () => {
   });
 
   it('derives remaining time from an epoch-millisecond timestamp', () => {
-    // The real-world bug: Better Auth returned a value like this and the UI
-    // rendered it verbatim as a seconds count.
+    // Better Auth can send an epoch timestamp here, not a seconds count.
     const raw = String(Date.now() + 30_000);
     expect(retryAfterSeconds(raw)).toBeCloseTo(30, 0);
   });
