@@ -4,3 +4,4 @@ dist/
 .env
 public/uploads/*
 !public/uploads/.gitkeep
+.vercel
