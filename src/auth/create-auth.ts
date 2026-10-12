@@ -104,9 +104,11 @@ export function createBlogAuth(config: BlogAuthConfig) {
       useSecureCookies: config.baseUrl.startsWith('https://'),
 
       ipAddress: {
-        // Safe only because the Astro route handler overwrites this header with
-        // ctx.clientAddress (a single platform-resolved value). A raw forwarded
-        // chain would be spoofable: its leftmost entry is client-controlled.
+        // Rate limits key on this header, so the site's /api/auth/[...all] route
+        // must overwrite it with ctx.clientAddress (a single platform-resolved
+        // value) before calling auth.handler — see the demo's route. Passed
+        // through raw, the forwarded chain is spoofable: its leftmost entry is
+        // client-controlled, so a new value per request dodges the sign-in limit.
         ipAddressHeaders: ['x-forwarded-for'],
       },
     },

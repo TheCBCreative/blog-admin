@@ -7,6 +7,7 @@ import { writeFile, mkdir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { MediaStore, UploadedMedia } from '@thecbcreative/blog-admin/adapters';
+import { IMAGE_TYPE_ERROR, isAllowedImageType } from './image-types';
 
 export const UPLOAD_DIR = join(process.cwd(), 'public', 'uploads');
 
@@ -17,8 +18,8 @@ export function createLocalDiskMediaStore(): MediaStore {
       if (file.size > maxBytes) {
         throw new Error(`File is too large (${Math.round(file.size / 1024)}KB, max ${Math.round(maxBytes / 1024)}KB).`);
       }
-      if (!file.type.startsWith('image/')) {
-        throw new Error('Only image uploads are supported in this demo.');
+      if (!isAllowedImageType(file.type)) {
+        throw new Error(IMAGE_TYPE_ERROR);
       }
 
       await mkdir(UPLOAD_DIR, { recursive: true });

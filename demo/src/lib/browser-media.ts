@@ -8,6 +8,8 @@
  * still render in the preview.
  */
 
+import { IMAGE_TYPE_ERROR, isAllowedImageType } from './image-types';
+
 export interface BrowserUpload {
   id: string;
   sandboxId: string;
@@ -64,7 +66,7 @@ export async function listUploads(sandboxId: string): Promise<BrowserUpload[]> {
 }
 
 export async function addUpload(sandboxId: string, file: File): Promise<BrowserUpload> {
-  if (!file.type.startsWith('image/')) throw new Error('Only images can be uploaded.');
+  if (!isAllowedImageType(file.type)) throw new Error(IMAGE_TYPE_ERROR);
   if (file.size > MAX_SOURCE_BYTES) throw new Error('That image is too large (15 MB max).');
 
   const dataUrl = await downscale(file);

@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback, useReducer } from 'react';
 import { closedLightbox, lightboxReducer, type LightboxAction, type LightboxState } from '@thecbcreative/blog-admin/client';
 import { withBase } from '../lib/base-path';
 import { DEMO_MEDIA } from '../lib/demo-media';
+import { IMAGE_ACCEPT } from '../lib/image-types';
 import {
   addUpload,
   deleteUpload,
@@ -147,7 +148,7 @@ export default function MediaLibrary({ sandboxId }: Props) {
         <input
           ref={inputRef}
           type="file"
-          accept="image/*"
+          accept={IMAGE_ACCEPT}
           style={{ display: 'none' }}
           onChange={(e) => {
             const file = e.target.files?.[0];

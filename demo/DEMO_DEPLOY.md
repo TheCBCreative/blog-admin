@@ -64,6 +64,6 @@ Hobby-plan projects can run a cron job only once a day; hourly schedules need Pr
 
 Vercel doesn't let the app write files at runtime, so the Media Library keeps visitor uploads in the visitor's own browser (`src/lib/browser-media.ts`, IndexedDB), downscaled and stored as data URLs so they can be used as a featured image. They reset with the visitor's sandbox.
 
-The server-side route (`/api/admin/media`, backed by `src/lib/media-store.ts`) writes to local disk and is what a real client deployment would replace with an S3/R2-backed `MediaStore`.
+The server-side media route (`/api/admin/media`) is turned off and returns 404: every visitor shares the demo account, so a shared upload folder would let any visitor list or delete everyone's files. `src/lib/media-store.ts` stays as a local-disk example of the `MediaStore` interface; a real client deployment mounts its own route over an S3/R2-backed `MediaStore`. Uploads are limited to JPEG, PNG, GIF, WebP and AVIF (`src/lib/image-types.ts`). SVG is refused because it can carry script.
 
 Five sample photos ship in `public/demo-media/`, with their alt text in `src/lib/demo-media.ts`. To change them, replace the files and update that list. They appear in the Media Library and in the composer's featured-image picker, which fills in the alt text.
